@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="640" viewBox="0 0 980 640" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+  <defs>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000000" flood-opacity="0.16"/>
+    </filter>
+    <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-end">
+      <path d="M0,0 L10,5 L0,10 z" fill="#495057"/>
+    </marker>
+  </defs>
+
+  <!-- Sfondo -->
+  <rect width="980" height="640" fill="#F8F9FA"/>
+
+  <!-- Titolo -->
+  <text x="490" y="44" text-anchor="middle" font-size="25" font-weight="700" fill="#212529">Architettura — Telecomando Irrigazione Smart</text>
+  <text x="490" y="70" text-anchor="middle" font-size="14" fill="#868E96">Comunicazione ESP-NOW tra telecomando (CYD / ESP32-S3) e unità principale di irrigazione</text>
+
+  <!-- ===================== BOX TELECOMANDO (sinistra) ===================== -->
+  <rect x="50" y="118" width="360" height="452" rx="16" fill="#FFFFFF" stroke="#0B7285" stroke-width="2" filter="url(#shadow)"/>
+  <path d="M66 118 A16 16 0 0 0 50 134 L50 162 L410 162 L410 134 A16 16 0 0 0 394 118 Z" fill="#0B7285"/>
+  <text x="230" y="146" text-anchor="middle" font-size="15" font-weight="700" fill="#FFFFFF">TELECOMANDO REMOTO</text>
+  <text x="230" y="160" text-anchor="middle" font-size="11" fill="#E3FAFC">CYD · ESP32-S3 · display TFT touch</text>
+
+  <!-- righe telecomando -->
+  <g font-size="13" fill="#343A40">
+    <rect x="70" y="184" width="320" height="40" rx="9" fill="#E7F5F5" stroke="#C5E1E3"/>
+    <text x="86" y="208">Display TFT Touch 320×240 (landscape)</text>
+
+    <rect x="70" y="236" width="320" height="40" rx="9" fill="#E7F5F5" stroke="#C5E1E3"/>
+    <text x="86" y="260">Interfaccia: 7 schede (swipe orizzontale)</text>
+
+    <rect x="70" y="288" width="320" height="40" rx="9" fill="#E7F5F5" stroke="#C5E1E3"/>
+    <text x="86" y="312">Touch handler: tap / swipe (anti-errore)</text>
+
+    <rect x="70" y="340" width="320" height="40" rx="9" fill="#EBFBEE" stroke="#C3EBC8"/>
+    <text x="86" y="364" fill="#2B8A3E" font-weight="600">Invio comandi → struct_command</text>
+
+    <rect x="70" y="392" width="320" height="40" rx="9" fill="#FFF3BF" stroke="#FFE08A"/>
+    <text x="86" y="416" fill="#B08900" font-weight="600">Ricezione telemetria ← struct_telemetry</text>
+
+    <rect x="70" y="444" width="320" height="40" rx="9" fill="#F1F3F5" stroke="#E9ECEF"/>
+    <text x="86" y="468">Stato locale ottimistico + standby auto</text>
+  </g>
+
+  <!-- ===================== BOX UNITÀ PRINCIPALE (destra) ===================== -->
+  <rect x="570" y="118" width="360" height="452" rx="16" fill="#FFFFFF" stroke="#2F9E44" stroke-width="2" filter="url(#shadow)"/>
+  <path d="M586 118 A16 16 0 0 0 570 134 L570 162 L930 162 L930 134 A16 16 0 0 0 914 118 Z" fill="#2F9E44"/>
+  <text x="750" y="146" text-anchor="middle" font-size="15" font-weight="700" fill="#FFFFFF">UNITÀ PRINCIPALE</text>
+  <text x="750" y="160" text-anchor="middle" font-size="11" fill="#E6FCF0">ESP32-S3 · irrigazione intelligente</text>
+
+  <g font-size="13" fill="#343A40">
+    <rect x="590" y="184" width="320" height="40" rx="9" fill="#FFF3BF" stroke="#FFE08A"/>
+    <text x="606" y="208" fill="#B08900" font-weight="600">Ricezione comandi ← struct_command</text>
+
+    <rect x="590" y="236" width="320" height="40" rx="9" fill="#EBFBEE" stroke="#C3EBC8"/>
+    <text x="606" y="260" fill="#2B8A3E" font-weight="600">Logica SMART IA (score irrigazione)</text>
+
+    <rect x="590" y="288" width="320" height="40" rx="9" fill="#E7F5F5" stroke="#C5E1E3"/>
+    <text x="606" y="312">Invio telemetria → struct_telemetry</text>
+
+    <rect x="590" y="340" width="320" height="40" rx="9" fill="#F1F3F5" stroke="#E9ECEF"/>
+    <text x="606" y="364">Attuatori: Pompa 1 · Pompa 2 · Pozzo</text>
+
+    <rect x="590" y="392" width="320" height="40" rx="9" fill="#F1F3F5" stroke="#E9ECEF"/>
+    <text x="606" y="416">Sensori: S1/S2 · Temp/Umid · Serbatoio</text>
+
+    <rect x="590" y="444" width="320" height="40" rx="9" fill="#F1F3F5" stroke="#E9ECEF"/>
+    <text x="606" y="468">OpenWeather (meteo) · WebUI (monitoraggio)</text>
+  </g>
+
+  <!-- ===================== COLLEGAMENTO ESP-NOW ===================== -->
+  <rect x="442" y="150" width="96" height="28" rx="14" fill="#212529" filter="url(#shadow)"/>
+  <text x="490" y="168" text-anchor="middle" font-size="12" font-weight="700" fill="#FFFFFF">ESP-NOW</text>
+
+  <!-- comandi: remote -> principale -->
+  <line x1="414" y1="300" x2="566" y2="300" stroke="#2F9E44" stroke-width="3" marker-end="url(#arr)"/>
+  <text x="490" y="292" text-anchor="middle" font-size="12" font-weight="600" fill="#2B8A3E">comandi (struct_command) →</text>
+
+  <!-- telemetria: principale -> remote -->
+  <line x1="566" y1="362" x2="414" y2="362" stroke="#0B7285" stroke-width="3" marker-end="url(#arr)"/>
+  <text x="490" y="382" text-anchor="middle" font-size="12" font-weight="600" fill="#0B7285">← telemetria (struct_telemetry)</text>
+
+  <!-- ===================== NOTA FINALE ===================== -->
+  <text x="490" y="608" text-anchor="middle" font-size="12" fill="#868E96">Le struct ESP-NOW (struct_command / struct_telemetry) devono restare allineate tra i due firmware</text>
+  <text x="490" y="624" text-anchor="middle" font-size="12" fill="#868E96">affinché la radio funzioni: ogni modifica va ricompilata e caricata su entrambi i dispositivi.</text>
+</svg>
