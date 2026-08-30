@@ -604,3 +604,15 @@ L'obiettivo è dimostrare la capacità di progettare un'interfaccia embedded com
 ## Tech3D
 
 **Embedded Systems • ESP32 • IoT • HMI • Wireless Communication**
+
+---
+
+## 🔗 Progetto principale
+
+Questo progetto fa parte del sistema **ESP32 Smart Irrigation**.
+
+Il repository principale contiene il firmware e la logica di controllo dell'impianto di irrigazione:
+
+👉 [ESP32 Smart Irrigation](https://github.com/christianRoger/esp32-smart-irrigation)
+
+Il **Tech3D Remote Control** comunica con il controller principale tramite **ESP-NOW** e fornisce un'interfaccia locale TFT Touch per il monitoraggio e il controllo remoto.
