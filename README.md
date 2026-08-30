@@ -1,49 +1,49 @@
-# Technical Documentation — Tech3D Remote Control
+# Documentazione Tecnica — Tech3D Remote Control
 
-## 1. Project Overview
+## 1. Panoramica del Progetto
 
-**Tech3D Remote Control** is a wireless remote control panel developed around an ESP32 microcontroller and designed to operate as a remote interface for the **ESP32 Smart Irrigation** system.
+**Tech3D Remote Control** è un pannello di controllo remoto wireless sviluppato con un microcontrollore ESP32 e progettato per funzionare come interfaccia remota per il sistema **ESP32 Smart Irrigation**.
 
-The device communicates with the main irrigation controller through **ESP-NOW** and provides a local graphical interface through a **320×240 TFT display with resistive touch**.
+Il dispositivo comunica con il controller principale dell'impianto di irrigazione tramite **ESP-NOW** e dispone di un'interfaccia grafica locale basata su un **display TFT 320×240 con touch resistivo**.
 
-The main objective is to provide a dedicated remote interface for monitoring system status and accessing selected irrigation and system functions without requiring direct interaction with the main controller.
+L'obiettivo principale è fornire un'interfaccia remota dedicata per il monitoraggio dello stato del sistema e l'accesso a funzioni selezionate dell'impianto di irrigazione, senza dover interagire direttamente con il controller principale.
 
-The project integrates:
+Il progetto integra:
 
-* ESP32 microcontroller
-* TFT 320×240 display
-* XPT2046 resistive touch interface
-* ESP-NOW wireless communication
-* Graphical user interface
-* Touch navigation
-* System status monitoring
-* Irrigation monitoring
-* Water / well information
-* Programming information
-* Weather information
-* SMART irrigation information
-* Wi-Fi network information
-* Audio and display configuration
+* microcontrollore ESP32
+* display TFT 320×240
+* interfaccia touch resistiva XPT2046
+* comunicazione wireless ESP-NOW
+* interfaccia grafica
+* navigazione touch
+* monitoraggio dello stato del sistema
+* monitoraggio dell'irrigazione
+* informazioni su acqua / pozzo
+* informazioni sulla programmazione
+* informazioni meteorologiche
+* informazioni sul sistema SMART
+* informazioni sulla rete Wi-Fi
+* configurazione audio e display
 
-> **Note:** The source code is not included in this repository. The project is published as a **technical portfolio**, documenting the architecture, interface, communication system and technical solutions used during development.
+> **Nota:** Il codice sorgente non è incluso in questo repository. Il progetto è pubblicato come **portfolio tecnico**, con l'obiettivo di documentare l'architettura, l'interfaccia, il sistema di comunicazione e le soluzioni tecniche utilizzate durante lo sviluppo.
 
 ---
 
-# 2. Relationship with the Main Project
+# 2. Relazione con il Progetto Principale
 
-The Remote Control is designed as a complementary device to the main **ESP32 Smart Irrigation** controller.
+Il Remote Control è progettato come dispositivo complementare al controller principale **ESP32 Smart Irrigation**.
 
-The overall architecture can be represented as:
+L'architettura generale può essere rappresentata come segue:
 
 ```text
 ┌─────────────────────────────────┐
 │      ESP32 SMART IRRIGATION     │
 │                                 │
-│  Sensors                        │
-│  Pumps                          │
-│  Irrigation Logic               │
+│  Sensori                        │
+│  Pompe                          │
+│  Logica di irrigazione          │
 │  SMART                          │
-│  Weather                        │
+│  Meteo                          │
 │  Web Server                     │
 │  Telegram                       │
 └───────────────┬─────────────────┘
@@ -55,69 +55,69 @@ The overall architecture can be represented as:
 │       TECH3D REMOTE CONTROL     │
 │                                 │
 │  TFT 320×240                    │
-│  XPT2046 Touch                  │
-│  System Status                  │
-│  Water / Well                   │
-│  Programming                    │
-│  Weather                        │
+│  Touch XPT2046                  │
+│  Stato del sistema              │
+│  Acqua / Pozzo                  │
+│  Programmazione                 │
+│  Meteo                          │
 │  SMART                          │
 │  Audio / Display                │
 │  Wi-Fi                          │
 └─────────────────────────────────┘
 ```
 
-The main controller remains responsible for the irrigation system itself, while the Remote Control provides a dedicated user interface for remote interaction and monitoring.
+Il controller principale rimane responsabile della gestione dell'impianto di irrigazione, mentre il Remote Control fornisce un'interfaccia dedicata per il monitoraggio e l'interazione remota.
 
 ---
 
 # 3. Hardware
 
-## 3.1 Main Controller
+## 3.1 Controller Principale
 
-The remote control is based on an ESP32 microcontroller.
+Il Remote Control è basato su un microcontrollore ESP32.
 
-Main components:
+Componenti principali:
 
-| Component         | Function                    |
-| ----------------- | --------------------------- |
-| ESP32             | Main microcontroller        |
-| TFT 320×240       | Graphical interface         |
-| XPT2046           | Resistive touch controller  |
-| ESP-NOW           | Wireless communication      |
-| Battery indicator | Power status                |
-| Status indicators | Communication/system status |
+| Componente          | Funzione                    |
+| ------------------- | --------------------------- |
+| ESP32               | Microcontrollore principale |
+| TFT 320×240         | Interfaccia grafica         |
+| XPT2046             | Controller touch resistivo  |
+| ESP-NOW             | Comunicazione wireless      |
+| Indicatore batteria | Stato dell'alimentazione    |
+| Indicatori di stato | Stato comunicazione/sistema |
 
 ---
 
-# 4. Display and Touch Interface
+# 4. Display e Interfaccia Touch
 
-The graphical interface uses a **320×240 TFT display** with a resistive **XPT2046 touch controller**.
+L'interfaccia grafica utilizza un **display TFT 320×240** con controller touch resistivo **XPT2046**.
 
-The display is organized into:
+Il display è organizzato in:
 
 * Header
-* Main content area
-* Navigation area
-* Status information
+* Area principale dei contenuti
+* Area di navigazione
+* Informazioni di stato
 
-The header provides system information such as:
+L'header fornisce informazioni di sistema come:
 
-* battery level;
-* current screen;
-* time;
-* radio/communication status.
+* livello della batteria;
+* schermata corrente;
+* ora;
+* stato della comunicazione radio.
 
-The footer displays the radio status.
+Il footer visualizza lo stato della comunicazione radio.
 
-Example:
+Esempio:
 
 ```text
 ┌──────────────────────────────────────┐
-│ BATTERY   SCREEN NAME     HH:MM ●●●  │
+│ BATTERIA  SCHERMATA     HH:MM ●●●    │
 ├──────────────────────────────────────┤
 │                                      │
 │                                      │
-│            MAIN CONTENT              │
+│          CONTENUTO PRINCIPALE        │
 │                                      │
 │                                      │
 ├──────────────────────────────────────┤
@@ -127,22 +127,22 @@ Example:
 
 ---
 
-# 5. Navigation
+# 5. Navigazione
 
-The interface supports two main navigation methods.
+L'interfaccia supporta due principali modalità di navigazione.
 
-## 5.1 Swipe Navigation
+## 5.1 Navigazione tramite Swipe
 
-Horizontal swipe gestures can be used to change screens.
+Le gesture swipe orizzontali possono essere utilizzate per cambiare schermata.
 
-Main parameters:
+Parametri principali:
 
 ```text
 SWIPE_THRESHOLD = 60 px
 SWIPE_MAX_MS    = 800 ms
 ```
 
-The navigation follows the following sequence:
+La navigazione segue la seguente sequenza:
 
 ```text
 STATO SISTEMA
@@ -160,83 +160,83 @@ AUDIO E SCHERMO
 RETE WI-FI
 ```
 
-The interface contains seven main pages.
+L'interfaccia è composta da sette schermate principali.
 
 ---
 
-## 5.2 Touch Navigation
+## 5.2 Navigazione tramite Touch
 
-The touch interface is also used for direct interaction with controls.
+L'interfaccia touch viene utilizzata anche per l'interazione diretta con i controlli.
 
-Depending on the screen, touch actions can be used to:
+A seconda della schermata, il touch può essere utilizzato per:
 
-* select a function;
-* activate or change a parameter;
-* control irrigation functions;
-* change volume;
-* change display brightness;
-* switch SMART mode;
-* navigate through interface elements.
+* selezionare una funzione;
+* attivare o modificare un parametro;
+* controllare funzioni di irrigazione;
+* modificare il volume;
+* modificare la luminosità del display;
+* attivare o disattivare la modalità SMART;
+* navigare tra gli elementi dell'interfaccia.
 
-Swipe navigation and touch actions are handled separately so that a swipe gesture does not unintentionally trigger a button action.
+La navigazione tramite swipe e le azioni touch vengono gestite separatamente, in modo da evitare che una gesture di navigazione attivi accidentalmente un pulsante.
 
 ---
 
-# 6. Screen 0 — STATO SISTEMA
+# 6. Schermata 0 — STATO SISTEMA
 
-The main screen provides an overview of the irrigation system.
+La schermata principale fornisce una panoramica dello stato dell'impianto di irrigazione.
 
-Displayed information includes:
+Le informazioni visualizzate includono:
 
-* battery level;
-* system status;
-* current time;
-* Pump 1 status;
-* Pump 2 status;
-* well status;
-* ambient temperature;
-* ambient humidity;
-* weather condition;
-* soil status;
-* radio communication status.
+* livello della batteria;
+* stato del sistema;
+* ora corrente;
+* stato Pompa 1;
+* stato Pompa 2;
+* stato del pozzo;
+* temperatura ambiente;
+* umidità ambientale;
+* condizioni meteorologiche;
+* stato del terreno;
+* stato della comunicazione radio.
 
-The pump cards provide visual feedback when irrigation is active.
+Le schede delle pompe forniscono un feedback visivo quando l'irrigazione è attiva.
 
-The interface may display an animated gear/flow indication while a pump is operating.
+L'interfaccia può visualizzare un'indicazione animata della pompa/flusso durante il funzionamento.
 
-### Main interaction areas
+### Principali aree di interazione
 
 ```text
-Pump 1 card     → Pump 1 information/action
-Pump 2 card     → Pump 2 information/action
-Well badge      → Well information/action
+Scheda Pompa 1 → Informazioni/azione Pompa 1
+Scheda Pompa 2 → Informazioni/azione Pompa 2
+Indicatore Pozzo → Informazioni/azione Pozzo
 ```
 
 ---
 
-# 7. Screen 1 — POZZO / ACQUA
+# 7. Schermata 1 — POZZO / ACQUA
 
-This screen is dedicated to water and well information.
+Questa schermata è dedicata alle informazioni relative all'acqua e al pozzo.
 
-The interface displays:
+L'interfaccia visualizza:
 
-* well status;
-* reservoir level;
-* water availability;
-* reservoir information;
-* well pump status.
+* stato del pozzo;
+* livello del serbatoio;
+* disponibilità dell'acqua;
+* informazioni sul serbatoio;
+* stato della pompa del pozzo.
 
-The reservoir level is represented visually together with the available percentage.
+Il livello del serbatoio viene rappresentato graficamente insieme alla percentuale di acqua disponibile.
 
-Example structure:
+Esempio:
 
 ```text
 ┌──────────────────────────────────────┐
 │          POZZO / ACQUA               │
 ├──────────┬───────────────────────────┤
 │          │ LIVELLO SERBATOIO         │
-│  WATER   │                           │
-│  LEVEL   │ 73%                       │
+│  ACQUA   │                           │
+│          │ 73%                       │
 │          │ ACQUA DISPONIBILE         │
 │          │                           │
 │          │ POMPA POZZO: ON           │
@@ -245,27 +245,27 @@ Example structure:
 └──────────────────────────────────────┘
 ```
 
-The well pump control can be accessed through the dedicated touch area when the corresponding operating mode permits it.
+Il controllo della pompa del pozzo può essere effettuato tramite l'area touch dedicata quando la modalità operativa corrispondente lo consente.
 
 ---
 
-# 8. Screen 2 — PROGRAMMAZIONE
+# 8. Schermata 2 — PROGRAMMAZIONE
 
-The programming screen provides access to the irrigation schedule.
+La schermata di programmazione permette di accedere alla configurazione del programma di irrigazione.
 
-The interface allows selection between:
+L'interfaccia consente di selezionare:
 
 ```text
 [POMPA 1]     [POMPA 2]
 ```
 
-Each pump has configurable:
+Per ciascuna pompa sono configurabili:
 
-* start time;
-* end time;
-* active/inactive state.
+* ora di inizio;
+* ora di fine;
+* stato attivo/disattivo.
 
-Example:
+Esempio:
 
 ```text
 ┌──────────────────────────────────────┐
@@ -277,33 +277,33 @@ Example:
 │                                      │
 │ FINE         [ - ] 09:00 [ + ]       │
 ├──────────────────────────────────────┤
-│             [ SALVARE ]              │
+│             [ SALVA ]                │
 └──────────────────────────────────────┘
 ```
 
-Touch controls include:
+I controlli touch includono:
 
-* Pump 1 tab;
-* Pump 2 tab;
-* start time adjustment;
-* end time adjustment;
-* save operation.
+* scheda Pompa 1;
+* scheda Pompa 2;
+* regolazione dell'ora di inizio;
+* regolazione dell'ora di fine;
+* salvataggio della configurazione.
 
 ---
 
-# 9. Screen 3 — METEO
+# 9. Schermata 3 — METEO
 
-The weather screen displays meteorological information received from the irrigation system.
+La schermata meteo visualizza le informazioni meteorologiche ricevute dal sistema di irrigazione.
 
-The interface can display:
+L'interfaccia può visualizzare:
 
-* current weather condition;
-* weather description;
-* temperature;
-* humidity;
-* weather information received from the configured service.
+* condizioni meteorologiche attuali;
+* descrizione del tempo;
+* temperatura;
+* umidità;
+* informazioni meteorologiche ricevute dal servizio configurato.
 
-Example:
+Esempio:
 
 ```text
 ┌──────────────────────────────────────┐
@@ -312,7 +312,7 @@ Example:
 │                                      │
 │        METEO — Tempo sereno          │
 │                                      │
-│      TEMP.              UMIDITA      │
+│      TEMP.              UMIDITÀ      │
 │       24°C                55%        │
 │                                      │
 ├──────────────────────────────────────┤
@@ -320,23 +320,23 @@ Example:
 └──────────────────────────────────────┘
 ```
 
-This screen is primarily informational.
+Questa schermata ha principalmente una funzione informativa.
 
 ---
 
-# 10. Screen 4 — SMART IA
+# 10. Schermata 4 — SMART IA
 
-The SMART IA screen provides information about the adaptive irrigation system.
+La schermata SMART IA fornisce informazioni sul sistema di irrigazione adattivo.
 
-The interface displays:
+L'interfaccia visualizza:
 
-* SMART status;
-* activation state;
-* irrigation efficiency;
-* score information;
-* adaptive system status.
+* stato SMART;
+* stato di attivazione;
+* efficienza dell'irrigazione;
+* informazioni sullo score;
+* stato del sistema adattivo.
 
-Example:
+Esempio:
 
 ```text
 ┌──────────────────────────────────────┐
@@ -357,17 +357,17 @@ Example:
 └──────────────────────────────────────┘
 ```
 
-The SMART mode is based on an adaptive/heuristic irrigation strategy implemented by the main irrigation controller.
+La modalità SMART si basa su una strategia di irrigazione adattiva/euristica implementata nel controller principale.
 
-The Remote Control displays the status and information provided by the main system.
+Il Remote Control visualizza lo stato e le informazioni fornite dal sistema principale.
 
 ---
 
-# 11. Screen 5 — AUDIO E SCHERMO
+# 11. Schermata 5 — AUDIO E SCHERMO
 
-This screen provides local interface configuration.
+Questa schermata permette di configurare l'interfaccia locale.
 
-Two main parameters are available:
+Sono disponibili due parametri principali:
 
 ### Volume
 
@@ -375,31 +375,31 @@ Two main parameters are available:
 [ - ]      100%      [ + ]
 ```
 
-### Display brightness
+### Luminosità del display
 
 ```text
 [ - ]      100%      [ + ]
 ```
 
-Touch controls allow the user to increase or decrease the corresponding values.
+I controlli touch permettono di aumentare o diminuire i valori corrispondenti.
 
-This screen is dedicated to the local user interface and does not represent irrigation logic.
+Questa schermata è dedicata esclusivamente all'interfaccia locale e non rappresenta la logica di irrigazione.
 
 ---
 
-# 12. Screen 6 — RETE WI-FI
+# 12. Schermata 6 — RETE WI-FI
 
-The Wi-Fi screen provides information about the network connection.
+La schermata Wi-Fi fornisce informazioni relative alla connessione di rete.
 
-Displayed information includes:
+Le informazioni visualizzate includono:
 
-* network SSID;
-* signal strength;
-* IP address;
-* MAC address;
-* network status.
+* SSID della rete;
+* intensità del segnale;
+* indirizzo IP;
+* indirizzo MAC;
+* stato della rete.
 
-Example:
+Esempio:
 
 ```text
 ┌──────────────────────────────────────┐
@@ -418,80 +418,82 @@ Example:
 └──────────────────────────────────────┘
 ```
 
-This screen is informational and allows the user to verify the network state of the remote controller.
+Questa schermata è informativa e permette di verificare lo stato della rete del Remote Control.
 
 ---
 
-# 13. ESP-NOW Communication
+# 13. Comunicazione ESP-NOW
 
-Communication between the Remote Control and the main irrigation controller is based on **ESP-NOW**.
+La comunicazione tra il Remote Control e il controller principale dell'irrigazione utilizza **ESP-NOW**.
 
-The communication architecture is:
+L'architettura della comunicazione è:
 
 ```text
-Main ESP32-S3
+ESP32-S3
+Smart Irrigation
      │
      │ ESP-NOW
      ▼
-Remote ESP32
+ESP32
+Remote Control
      │
      ▼
 TFT + Touch Interface
 ```
 
-ESP-NOW provides a direct wireless communication mechanism between ESP devices without requiring the Remote Control to communicate with the main controller through a traditional TCP/IP connection.
+ESP-NOW fornisce un meccanismo di comunicazione wireless diretto tra dispositivi ESP.
 
-The Remote Control acts as a dedicated interface node within the overall irrigation system.
+Il Remote Control agisce come nodo di interfaccia dedicato all'interno dell'architettura complessiva del sistema di irrigazione.
 
 ---
 
-# 14. System Information
+# 14. Informazioni di Sistema
 
-The interface provides visual information regarding the communication state.
+L'interfaccia fornisce informazioni visive relative allo stato della comunicazione.
 
-The footer contains a radio status indicator:
+Il footer contiene un indicatore dello stato radio:
 
 ```text
 RADIO: ONLINE
 ```
 
-The header also provides communication/status indicators.
+Anche l'header fornisce indicatori relativi allo stato e alla comunicazione.
 
-This allows the user to quickly determine whether the remote controller is communicating with the system.
-
----
-
-# 15. User Interface Design
-
-The interface was designed around a compact 320×240 display.
-
-The design prioritizes:
-
-* clear information hierarchy;
-* large touch areas;
-* simple navigation;
-* status visibility;
-* rapid access to frequently used functions;
-* visual feedback.
-
-The use of a resistive touch display allows the device to operate as a dedicated embedded control panel without requiring external input devices.
+Questo permette all'utente di verificare rapidamente se il Remote Control sta comunicando correttamente con il sistema.
 
 ---
 
-# 16. Technical Architecture
+# 15. Progettazione dell'Interfaccia Utente
 
-The Remote Control can be considered a distributed embedded interface node.
+L'interfaccia è stata progettata attorno alle dimensioni compatte del display 320×240.
+
+Il design privilegia:
+
+* gerarchia chiara delle informazioni;
+* aree touch di dimensioni adeguate;
+* navigazione semplice;
+* visibilità dello stato del sistema;
+* accesso rapido alle funzioni utilizzate più frequentemente;
+* feedback visivo.
+
+L'utilizzo di un display touch resistivo permette al dispositivo di funzionare come pannello di controllo embedded dedicato senza la necessità di dispositivi di input esterni.
+
+---
+
+# 16. Architettura Tecnica
+
+Il Remote Control può essere considerato un nodo di interfaccia embedded all'interno di un sistema distribuito.
 
 ```text
-                     MAIN SYSTEM
+                     SISTEMA PRINCIPALE
 ┌──────────────────────────────────────────┐
 │ ESP32-S3 Smart Irrigation                │
 │                                          │
-│ Sensors                                  │
-│ Irrigation Control                       │
-│ Pumps                                    │
-│ SMART Logic                              │
-│ Weather                                  │
+│ Sensori                                  │
+│ Controllo irrigazione                    │
+│ Pompe                                    │
+│ Logica SMART                             │
+│ Meteo                                    │
 │ Web Server                               │
 │ Telegram                                 │
 └─────────────────────┬────────────────────┘
@@ -503,17 +505,17 @@ The Remote Control can be considered a distributed embedded interface node.
 │ Tech3D Remote Control                    │
 │                                          │
 │ ESP32                                    │
-│ Communication                            │
-│ UI Logic                                 │
-│ Touch Processing                         │
+│ Comunicazione                            │
+│ Logica interfaccia                       │
+│ Gestione touch                           │
 │                                          │
 │ ┌──────────────────────────────────────┐ │
 │ │ TFT 320×240                          │ │
 │ │                                      │ │
-│ │ System Status                        │ │
-│ │ Water / Well                         │ │
-│ │ Programming                          │ │
-│ │ Weather                              │ │
+│ │ Stato Sistema                        │ │
+│ │ Acqua / Pozzo                        │ │
+│ │ Programmazione                       │ │
+│ │ Meteo                                │ │
 │ │ SMART                                │ │
 │ │ Audio / Display                      │ │
 │ │ Wi-Fi                                │ │
@@ -523,74 +525,74 @@ The Remote Control can be considered a distributed embedded interface node.
 
 ---
 
-# 17. Development Approach
+# 17. Approccio allo Sviluppo
 
-The Remote Control was developed as a dedicated embedded interface for the irrigation system.
+Il Remote Control è stato sviluppato come interfaccia embedded dedicata al sistema di irrigazione.
 
-The development process involved:
+Il processo di sviluppo ha coinvolto:
 
 ```text
-ESP32 communication
+Comunicazione ESP32
         ↓
-ESP-NOW integration
+Integrazione ESP-NOW
         ↓
-Display integration
+Integrazione del display
         ↓
-Touch interface
+Interfaccia touch
         ↓
-Screen development
+Sviluppo delle schermate
         ↓
-Navigation
+Navigazione
         ↓
-System information
+Informazioni di sistema
         ↓
-Remote interaction
+Interazione remota
 ```
 
-The interface was developed around the constraints of an embedded 320×240 display, requiring careful organization of information and touch interaction areas.
+L'interfaccia è stata sviluppata tenendo conto dei limiti fisici di un display embedded 320×240, richiedendo un'organizzazione precisa delle informazioni e delle aree di interazione touch.
 
 ---
 
-# 18. Technical Skills Demonstrated
+# 18. Competenze Tecniche Dimostrate
 
-This project demonstrates practical experience in:
+Questo progetto dimostra esperienza pratica nei seguenti ambiti:
 
-### Embedded Systems
+### Sistemi Embedded
 
-* ESP32 development;
+* sviluppo ESP32;
 * C/C++;
-* microcontroller programming;
-* embedded user interfaces;
-* GPIO and peripheral integration.
+* programmazione di microcontrollori;
+* interfacce utente embedded;
+* integrazione GPIO e periferiche.
 
-### Wireless Communication
+### Comunicazione Wireless
 
 * ESP-NOW;
-* ESP32-to-ESP32 communication;
-* distributed embedded systems;
-* wireless status monitoring.
+* comunicazione ESP32-ESP32;
+* sistemi embedded distribuiti;
+* monitoraggio dello stato wireless.
 
 ### Human-Machine Interface
 
-* TFT displays;
-* resistive touch;
-* graphical interfaces;
-* touch navigation;
-* swipe gestures;
-* visual feedback.
+* display TFT;
+* touch resistivo;
+* interfacce grafiche;
+* navigazione touch;
+* gesture swipe;
+* feedback visivo.
 
-### System Integration
+### Integrazione di Sistema
 
-* integration with the ESP32 Smart Irrigation platform;
-* remote monitoring;
-* communication between embedded nodes;
-* interface design for embedded systems.
+* integrazione con la piattaforma ESP32 Smart Irrigation;
+* monitoraggio remoto;
+* comunicazione tra nodi embedded;
+* progettazione di interfacce per sistemi embedded.
 
 ---
 
-# 19. Project Structure
+# 19. Struttura del Repository
 
-The repository is organized as a technical portfolio:
+Il repository è organizzato come portfolio tecnico:
 
 ```text
 remote-control/
@@ -609,32 +611,31 @@ remote-control/
     ├── remote-03.jpeg
     ├── remote-04.jpeg
     ├── remote-05.jpeg
-    ├── remote-06.jpeg
-    └── remote-07.jpeg
+    └── remote-06.jpeg
 ```
 
-The source firmware is not included in the public repository.
+Il firmware sorgente non è incluso nel repository pubblico.
 
 ---
 
-# 20. Project Status
+# 20. Stato del Progetto
 
-**Platform:** ESP32
+**Piattaforma:** ESP32
 **Display:** TFT 320×240
-**Touch Controller:** XPT2046
-**Communication:** ESP-NOW
+**Controller Touch:** XPT2046
+**Comunicazione:** ESP-NOW
 **Firmware:** C++ / Arduino
-**Interface:** Embedded TFT Touch UI
-**Architecture:** Distributed Embedded System
-**Project Type:** Embedded / IoT / Remote Control
+**Interfaccia:** Embedded TFT Touch UI
+**Architettura:** Sistema Embedded Distribuito
+**Tipologia:** Embedded / IoT / Remote Control
 
 ---
 
-# 21. Relationship with ESP32 Smart Irrigation
+# 21. Relazione con ESP32 Smart Irrigation
 
-The Remote Control is part of the broader **ESP32 Smart Irrigation** ecosystem.
+Il Remote Control fa parte del più ampio ecosistema **ESP32 Smart Irrigation**.
 
-The two projects are maintained as separate repositories to clearly document their individual technical responsibilities.
+I due progetti vengono mantenuti come repository separati per documentare in modo chiaro le rispettive responsabilità tecniche.
 
 ```text
 ESP32 Smart Irrigation
@@ -644,4 +645,4 @@ ESP32 Smart Irrigation
 Tech3D Remote Control
 ```
 
-The separation allows the Remote Control to be presented as an independent embedded project while maintaining a clear technical relationship with the main irrigation controller.
+La separazione permette di presentare il Remote Control come un progetto embedded indipendente, mantenendo allo stesso tempo una chiara relazione tecnica con il controller principale dell'impianto di irrigazione.
