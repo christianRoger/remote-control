@@ -1,562 +1,886 @@
+# Documentazione Tecnica — Tech3D Remote Control
 
-# Documentazione Tecnica — Tech3D Remote Control (CYD / ESP32-S3)
+Controllo remoto wireless basato su **ESP32** e comunicazione **ESP-NOW**, progettato come interfaccia remota per l'unità principale del sistema **ESP32 Smart Irrigation**.
 
-Controllo remoto tramite ESP-NOW per l'unità principale di irrigazione `ESP32S3_Irrigatore_ST7789`.
+Il Remote Control utilizza un display **TFT 240×320 in orientamento landscape**, con area logica di **320×240 pixel**, e un pannello touch resistivo basato su **XPT2046**.
 
-Il firmware viene eseguito su un ESP32-S3 con display TFT touch resistivo (CYD) e **replica visivamente** le schermate dell'unità principale, consentendo di attivare/disattivare le pompe, il pozzo e la modalità Smart IA, programmare gli orari e regolare audio e luminosità.
+Il dispositivo replica localmente l'interfaccia principale e consente di visualizzare lo stato del sistema e, dove previsto, inviare comandi per pompe, pozzo, modalità SMART IA, programmazione dell'irrigazione e configurazione dell'interfaccia.
 
-> **Nota:** Il codice sorgente non è incluso nel repository pubblico. Questa documentazione descrive l'architettura tecnica, il protocollo di comunicazione, l'interfaccia utente e le principali soluzioni implementative del progetto.
-
----
-
-## 1. Panoramica
-
-| Elemento      | Descrizione                                                                                             |
-| ------------- | ------------------------------------------------------------------------------------------------------- |
-| Scheda        | ESP32-S3 (CYD — Cheap Yellow Display)                                                                   |
-| Display       | TFT 240×320 **fisico**, utilizzato in modalità landscape (`setRotation(1)`) → canvas logico **320×240** |
-| Touch         | Resistivo (`TFT_Touch`), calibrato con `setCal(495, 3398, 721, 3448, 320, 240, 1)`                      |
-| Comunicazione | ESP-NOW (broadcast), senza conferma di consegna                                                         |
-| Schermate     | 7 schermate navigabili tramite swipe orizzontale                                                        |
-| Librerie      | `TFT_eSPI`, `TFT_Touch`, `WiFi`, `esp_now`                                                              |
-
-> ⚠️ **Il canvas logico è 320×240 (landscape).** Tutte le coordinate riportate in questo documento utilizzano il sistema di coordinate logico `(x: 0–319, y: 0–239)`.
+> **Nota:** il firmware sorgente non è incluso nel repository pubblico. Questa documentazione descrive l'architettura, il funzionamento, il protocollo di comunicazione e le soluzioni tecniche adottate durante lo sviluppo del progetto.
 
 ---
 
-## 2. Mappatura dei Pin
+# 1. Panoramica del sistema
 
-| Pin | Definizione | Funzione                       |
-| --: | ----------- | ------------------------------ |
-|  39 | `RTP_DOUT`  | Touch resistivo DOUT           |
-|  32 | `RTP_DIN`   | Touch resistivo DIN            |
-|  25 | `RTP_SCK`   | Touch resistivo SCK            |
-|  33 | `RTP_CS`    | Touch resistivo CS             |
-|  36 | `RTP_IRQ`   | Touch IRQ (interruzione touch) |
-|   4 | `AUDIO_EN`  | Enable amplificatore audio     |
-|  26 | `AUDIO_OUT` | Uscita audio (buzzer/click)    |
-|  22 | `LED_R`     | LED rosso (stato radio)        |
-|  16 | `LED_G`     | LED verde (stato radio)        |
-|  17 | `LED_B`     | LED blu (stato radio)          |
-|  34 | `PIN_BAT`   | Lettura batteria (ADC)         |
-|  21 | `PIN_BL`    | Backlight display (PWM)        |
+| Voce                | Descrizione                                 |
+| ------------------- | ------------------------------------------- |
+| Microcontrollore    | ESP32-S3                                    |
+| Display             | TFT 240×320 fisico, utilizzato in landscape |
+| Canvas logico       | 320×240 pixel                               |
+| Touch               | Resistivo XPT2046 / TFT_Touch               |
+| Comunicazione       | ESP-NOW                                     |
+| Modalità ESP-NOW    | Broadcast, senza crittografia               |
+| Interfaccia         | GUI embedded touch                          |
+| Navigazione         | Touch + swipe orizzontale                   |
+| Numero di schermate | 7                                           |
+| Firmware            | C++ / Arduino                               |
+| Librerie principali | TFT_eSPI, TFT_Touch, WiFi, esp_now          |
 
-Stato iniziale:
+Tutte le coordinate grafiche e di interazione descritte in questa documentazione fanno riferimento al sistema logico:
 
-* `PIN_BL` viene attivato con la luminosità `sysBright` (255);
-* tutti i LED vengono impostati su `HIGH`;
-* `AUDIO_EN` viene impostato su `LOW`.
+```text
+X: 0 – 319
+Y: 0 – 239
+```
+
+Il display fisico è un **240×320**, ma viene ruotato tramite:
+
+```cpp
+setRotation(1);
+```
+
+ottenendo una superficie logica di:
+
+```text
+320 × 240 pixel
+```
 
 ---
 
-## 3. Comunicazione ESP-NOW
+# 2. Relazione con il sistema ESP32 Smart Irrigation
 
-### 3.1 Strutture Dati
+Il Remote Control è un nodo embedded separato che lavora insieme all'unità principale **ESP32 Smart Irrigation**.
 
-Le strutture dati devono essere **identiche a quelle utilizzate dall'unità principale**.
+L'unità principale rimane responsabile della gestione fisica del sistema di irrigazione.
 
-### Dati inviati
+Il Remote Control svolge invece il ruolo di interfaccia locale wireless.
 
-`struct_command` → unità principale:
+```text
+┌─────────────────────────────────────┐
+│       ESP32 SMART IRRIGATION        │
+│          UNITÀ PRINCIPALE           │
+│                                     │
+│  Sensori                            │
+│  Pompe                              │
+│  Logica irrigazione                 │
+│  SMART IA                           │
+│  Meteo                              │
+│  Wi-Fi                              │
+│  Web Server                         │
+│  Telegram                           │
+└──────────────────┬──────────────────┘
+                   │
+                   │ ESP-NOW
+                   │
+                   ▼
+┌─────────────────────────────────────┐
+│       TECH3D REMOTE CONTROL         │
+│                                     │
+│  ESP32-S3                           │
+│  TFT 320×240                        │
+│  Touch XPT2046                      │
+│  Interfaccia grafica                │
+│  Comandi remoti                     │
+└─────────────────────────────────────┘
+```
 
-```c
+La separazione permette di mantenere indipendenti:
+
+* la logica di controllo dell'impianto;
+* l'interfaccia utente;
+* la comunicazione wireless;
+* la gestione del display e del touch.
+
+---
+
+# 3. Mappatura dei pin
+
+Il Remote Control utilizza i seguenti GPIO:
+
+| GPIO | Definizione | Funzione                      |
+| ---: | ----------- | ----------------------------- |
+|   39 | `RTP_DOUT`  | Touch resistivo DOUT          |
+|   32 | `RTP_DIN`   | Touch resistivo DIN           |
+|   25 | `RTP_SCK`   | Touch resistivo SCK           |
+|   33 | `RTP_CS`    | Touch resistivo CS            |
+|   36 | `RTP_IRQ`   | Interrupt touch               |
+|    4 | `AUDIO_EN`  | Enable amplificatore audio    |
+|   26 | `AUDIO_OUT` | Uscita audio / buzzer         |
+|   22 | `LED_R`     | LED rosso stato radio         |
+|   16 | `LED_G`     | LED verde stato radio         |
+|   17 | `LED_B`     | LED blu stato radio           |
+|   34 | `PIN_BAT`   | Lettura batteria tramite ADC  |
+|   21 | `PIN_BL`    | Backlight display tramite PWM |
+
+### Stato iniziale
+
+Durante l'avvio:
+
+```text
+PIN_BL     → luminosità sysBright (255)
+LED_R      → HIGH
+LED_G      → HIGH
+LED_B      → HIGH
+AUDIO_EN   → LOW
+```
+
+---
+
+# 4. Touchscreen
+
+Il pannello touch è di tipo resistivo.
+
+La calibrazione utilizzata è:
+
+```cpp
+setCal(495, 3398, 721, 3448, 320, 240, 1);
+```
+
+Il sistema utilizza il touch per:
+
+* selezionare funzioni;
+* modificare parametri;
+* attivare o disattivare funzioni;
+* navigare tra le schermate;
+* eseguire swipe orizzontali.
+
+La gestione del touch distingue intenzionalmente tra:
+
+```text
+TAP
+ │
+ └── comando / interazione
+
+SWIPE
+ │
+ └── navigazione tra schermate
+```
+
+Questa separazione evita che un gesto di navigazione possa attivare accidentalmente un comando.
+
+---
+
+# 5. Comunicazione ESP-NOW
+
+La comunicazione tra Remote Control e unità principale utilizza **ESP-NOW**.
+
+```text
+┌──────────────────────────────┐
+│ ESP32-S3                     │
+│ Smart Irrigation             │
+└──────────────┬───────────────┘
+               │
+               │ ESP-NOW
+               │
+               ▼
+┌──────────────────────────────┐
+│ ESP32-S3                     │
+│ Tech3D Remote Control        │
+└──────────────────────────────┘
+```
+
+La comunicazione utilizza un peer broadcast e non richiede una connessione TCP/IP tra i due dispositivi.
+
+Configurazione principale:
+
+```text
+WiFi Mode : WIFI_STA
+ESP-NOW   : Broadcast
+Channel   : 0
+Encryption: Disabilitata
+```
+
+---
+
+# 6. Struttura dei comandi
+
+Il Remote Control invia alla unità principale una struttura `struct_command`.
+
+```cpp
 typedef struct struct_command {
 
-  int cmdP1;        // 1 attiva / 0 disattiva Pompa 1
+    int cmdP1;
+    int cmdP2;
+    int cmdPozzo;
+    int cmdResetWifi;
 
-  int cmdP2;        // 1 attiva / 0 disattiva Pompa 2
+    int setProgPompa;
 
-  int cmdPozzo;     // 1 attiva / 0 disattiva Pozzo
+    int pStartH;
+    int pStartM;
 
-  int cmdResetWifi; // -1 = inattivo; altro valore = reset Wi-Fi
+    int pEndH;
+    int pEndM;
 
-  int setProgPompa; // pompa target della programmazione (1 o 2)
+    int cmdSmartMode;
 
-  int pStartH;      // ora inizio (0–23)
-
-  int pStartM;      // minuto inizio
-
-  int pEndH;        // ora fine
-
-  int pEndM;        // minuto fine
-
-  int cmdSmartMode; // -1 = inattivo; 1 = attiva; 0 = disattiva modalità IA
-
-  int magicNumber;  // sempre 12345
+    int magicNumber;
 
 } struct_command;
 ```
 
-### Dati ricevuti
+## Significato dei campi
 
-`struct_telemetry` ← unità principale:
+| Campo          | Funzione                               |
+| -------------- | -------------------------------------- |
+| `cmdP1`        | Comando Pompa 1                        |
+| `cmdP2`        | Comando Pompa 2                        |
+| `cmdPozzo`     | Comando pompa pozzo                    |
+| `cmdResetWifi` | Richiesta reset Wi-Fi                  |
+| `setProgPompa` | Pompa interessata dalla programmazione |
+| `pStartH`      | Ora di inizio                          |
+| `pStartM`      | Minuto di inizio                       |
+| `pEndH`        | Ora di fine                            |
+| `pEndM`        | Minuto di fine                         |
+| `cmdSmartMode` | Comando modalità SMART IA              |
+| `magicNumber`  | Valore di validazione `12345`          |
 
-```c
+I comandi che devono essere eseguiti una sola volta vengono riportati a `-1` dopo l'invio.
+
+Questo evita la ripetizione involontaria dello stesso comando.
+
+---
+
+# 7. Struttura della telemetria
+
+L'unità principale invia al Remote Control la struttura `struct_telemetry`.
+
+```cpp
 typedef struct struct_telemetry {
 
-  int sens1, sens2;        // umidità dei sensori S1/S2 (%)
+    int sens1;
+    int sens2;
 
-  int percentAcqua;        // livello del serbatoio (%)
+    int percentAcqua;
 
-  int temp;                // temperatura (°C)
+    int temp;
+    int umid;
 
-  int umid;                // umidità dell'aria (%)
+    bool statoP1;
+    bool statoP2;
+    bool statoPozzo;
 
-  bool statoP1, statoP2, statoPozzo; // stati pompe/pozzo
+    char ipStr[16];
+    char ssid[32];
+    char mac[18];
+    char ora[6];
 
-  char ipStr[16], ssid[32], mac[18], ora[6];
+    int prog1_Start;
+    int prog1_End;
+    int prog2_Start;
+    int prog2_End;
 
-  int prog1_Start, prog1_End, prog2_Start, prog2_End; // programmazione (minuti)
+    int rssi;
 
-  int rssi;                // segnale Wi-Fi dell'unità principale
+    char meteo[48];
 
-  char meteo[48];          // descrizione meteo (OpenWeather)
+    int pioggia;
+    int meteoEnabled;
 
-  int pioggia;             // 1 = previsione di pioggia
+    int smartMode;
 
-  int meteoEnabled;        // 1 = OpenWeather configurato
+    float efficienzaP1;
+    float efficienzaP2;
 
-  int smartMode;           // 1 = modalità IA attiva
+    int scoreP1;
+    int scoreP2;
 
-  float efficienzaP1, efficienzaP2; // efficienza (%/min) — provenienti dall'unità principale
-
-  int scoreP1, scoreP2;    // score della modalità IA (P1/P2)
-
-  int magicNumber;         // sempre 54321
+    int magicNumber;
 
 } struct_telemetry;
 ```
 
-> 🔴 **Regola critica:** `struct_telemetry` del Remote Control e `struct_telemetry` (`main/app.h`) devono contenere **esattamente gli stessi campi, nello stesso ordine e con gli stessi tipi**.
->
-> Qualsiasi modifica a una delle strutture richiede la ricompilazione e la programmazione di **entrambi** i firmware. In caso contrario, la dimensione della struttura può cambiare e la comunicazione radio può interrompersi, causando lo stato `RADIO: DISCONNESSO`.
+### Dati ricevuti
 
-### 3.2 Invio e Ricezione
-
-`initESPNOW()`:
-
-* imposta `WiFi.mode(WIFI_STA)`;
-* registra i callback;
-* aggiunge il peer broadcast;
-* utilizza `channel = 0`;
-* non utilizza crittografia.
-
-`OnDataRecv()`:
-
-* copia il pacchetto in `teleData` quando `len == sizeof(struct_telemetry)`;
-* verifica `magicNumber == 54321`;
-* aggiorna `lastTeleReceived`.
-
-`enviaComando()`:
-
-* invia `cmdData`;
-* azzera i comandi single-fire dopo l'invio:
-
-  * `cmdResetWifi`;
-  * `setProgPompa`;
-  * `cmdSmartMode` → `-1`;
-* evita quindi la trasmissione ripetuta dello stesso comando.
-
-`lerBateriaPct()`:
-
-* legge `PIN_BAT`;
-* converte il valore ADC nell'intervallo 0–100%;
-* utilizza il range `2000–2800`.
-
-### 3.3 Canale e Riconnessione
-
-Nel `loop()`, se non viene ricevuta telemetria per più di **6 secondi**, il firmware avvia una procedura di ricerca del canale.
-
-Il sistema effettua il **channel hop** sui canali 1–13, cambiando canale ogni 500 ms per tentare di ritrovare l'unità principale.
+| Campo          | Informazione                          |
+| -------------- | ------------------------------------- |
+| `sens1`        | Umidità sensore S1                    |
+| `sens2`        | Umidità sensore S2                    |
+| `percentAcqua` | Livello del serbatoio                 |
+| `temp`         | Temperatura                           |
+| `umid`         | Umidità dell'aria                     |
+| `statoP1`      | Stato Pompa 1                         |
+| `statoP2`      | Stato Pompa 2                         |
+| `statoPozzo`   | Stato pompa pozzo                     |
+| `ipStr`        | Indirizzo IP dell'unità principale    |
+| `ssid`         | SSID della rete                       |
+| `mac`          | MAC address                           |
+| `ora`          | Ora del sistema                       |
+| `prog1_Start`  | Inizio programmazione P1              |
+| `prog1_End`    | Fine programmazione P1                |
+| `prog2_Start`  | Inizio programmazione P2              |
+| `prog2_End`    | Fine programmazione P2                |
+| `rssi`         | RSSI Wi-Fi dell'unità principale      |
+| `meteo`        | Descrizione condizioni meteorologiche |
+| `pioggia`      | Previsione di pioggia                 |
+| `meteoEnabled` | Stato configurazione meteo            |
+| `smartMode`    | Stato SMART IA                        |
+| `efficienzaP1` | Efficienza P1                         |
+| `efficienzaP2` | Efficienza P2                         |
+| `scoreP1`      | Score P1                              |
+| `scoreP2`      | Score P2                              |
+| `magicNumber`  | Valore di validazione `54321`         |
 
 ---
 
-## 4. Palette dei Colori
+# 8. Validazione della telemetria
 
-| Nome             | Hex      | Utilizzo                                 |
-| ---------------- | -------- | ---------------------------------------- |
-| `COLOR_BG`       | `0x0821` | Sfondo                                   |
-| `COLOR_ACCENT`   | `0x07E0` | Evidenziazione verde acqua               |
-| `COLOR_BLUE`     | `0x041F` | Blu                                      |
-| `COLOR_RED`      | `0xF800` | Rosso / critico                          |
-| `COLOR_TEXT`     | `0xFFFF` | Testo bianco                             |
-| `COLOR_DARK`     | `0x2124` | Barre superiore/inferiore e sfondi scuri |
-| `COLOR_WARN`     | `0xFFE0` | Avviso giallo                            |
-| `COLOR_SUCCESS`  | `0x07E4` | Successo                                 |
-| `COLOR_CRITICAL` | `0xF800` | Critico                                  |
-| `COLOR_WARNING`  | `0xFEA0` | Avviso arancione                         |
-| `COLOR_INFO`     | `0x07FF` | Informazione ciano (Smart IA)            |
-| `COLOR_MUTED`    | `0x8C71` | Testo secondario grigio                  |
-| `COLOR_WATER`    | `0x1CFF` | Blu acqua                                |
-| `COLOR_FLOWER_R` | `0xF9A0` | Arancione (sole)                         |
-| `COLOR_CARD`     | `0x0861` | Sfondo delle schede                      |
-| `COLOR_TOUCH`    | `0x5D7F` | Blu touch                                |
-
----
-
-## 5. Architettura dell'Interfaccia Utente
-
-### 5.1 Variabili Globali
-
-| Variabile                | Tipo            | Funzione                                                     |
-| ------------------------ | --------------- | ------------------------------------------------------------ |
-| `currentPage`            | `int`           | Schermata attiva (0–6)                                       |
-| `forceRedraw`            | `bool`          | Forza il ridisegno completo al prossimo `updateUI()`         |
-| `touchStartX/Y`          | `int`           | Coordinate iniziali del touch per il rilevamento dello swipe |
-| `editP`                  | `int`           | Pompa in modifica nella Programmazione (1 o 2)               |
-| `eS_mins`, `eE_mins`     | `int`           | Orario di inizio/fine modificabile in minuti                 |
-| `animFrame`              | `int`           | Contatore delle animazioni                                   |
-| `sysBright`, `sysVolume` | `int`           | Luminosità (10–255) e volume (0–100)                         |
-| `isSleeping`             | `bool`          | Display in modalità sleep                                    |
-| `lastActivity`           | `unsigned long` | Ultimo touch, timeout sleep di 30 s                          |
-| `lastTeleReceived`       | `long`          | Ultima telemetria valida ricevuta                            |
-
-### 5.2 Ciclo di Rendering
-
-`updateUI()`:
-
-* reimposta `setTextSize(1)`;
-* richiama `drawPageN()` in base a `currentPage`.
-
-Ogni `drawPageN()`:
-
-1. esegue `fillScreen(COLOR_BG)`;
-2. richiama `drawHeader(...)` quando `forceRedraw` è `true`;
-3. disegna il contenuto della schermata;
-4. richiama `drawFooter()`.
-
-L'animazione viene aggiornata ogni **300 ms**:
+La telemetria ricevuta viene accettata solamente quando:
 
 ```text
-animFrame++
-     ↓
+len == sizeof(struct_telemetry)
+```
+
+e:
+
+```text
+magicNumber == 54321
+```
+
+Questo permette di evitare l'elaborazione di pacchetti non compatibili o non validi.
+
+> **Regola critica:** `struct_telemetry` nel Remote Control e `struct_telemetry` nell'unità principale devono avere **gli stessi campi, nello stesso ordine e con gli stessi tipi**.
+
+Una modifica della struttura richiede la ricompilazione e il caricamento del firmware su entrambe le unità.
+
+Una differenza nella dimensione della struttura può impedire la corretta ricezione della telemetria e portare allo stato:
+
+```text
+RADIO: DISCONNESSO
+```
+
+---
+
+# 9. Ricezione e invio
+
+### Inizializzazione
+
+La funzione:
+
+```cpp
+initESPNOW()
+```
+
+si occupa di:
+
+* configurare `WIFI_STA`;
+* inizializzare ESP-NOW;
+* registrare i callback;
+* configurare il peer broadcast;
+* preparare la comunicazione.
+
+### Ricezione
+
+La funzione:
+
+```cpp
+OnDataRecv()
+```
+
+verifica la dimensione del pacchetto e il `magicNumber`.
+
+Quando la telemetria è valida:
+
+```text
+Pacchetto
+   ↓
+Controllo dimensione
+   ↓
+Controllo magicNumber
+   ↓
+Aggiornamento telemetria
+   ↓
+Aggiornamento lastTeleReceived
+```
+
+### Invio
+
+La funzione:
+
+```cpp
+enviaComando()
+```
+
+trasmette `cmdData`.
+
+Dopo l'invio vengono azzerati i comandi single-fire:
+
+```text
+cmdResetWifi  → -1
+setProgPompa  → -1
+cmdSmartMode  → -1
+```
+
+---
+
+# 10. Riconnessione e channel hopping
+
+Se il Remote Control non riceve telemetria per più di **6 secondi**, viene attivata una procedura di ricerca del canale.
+
+```text
+Nessuna telemetria
+       │
+       │ > 6 s
+       ▼
+Channel Hop
+       │
+       ▼
+Canali 1–13
+       │
+       ▼
+Tentativo di riconnessione
+```
+
+Il cambio di canale viene eseguito ogni:
+
+```text
+500 ms
+```
+
+Questo permette al Remote Control di tentare nuovamente la sincronizzazione con l'unità principale.
+
+---
+
+# 11. Lettura della batteria
+
+La batteria viene letta attraverso:
+
+```cpp
+PIN_BAT
+```
+
+La conversione utilizza l'intervallo ADC:
+
+```text
+2000 → 0%
+2800 → 100%
+```
+
+Il valore risultante viene utilizzato nell'header dell'interfaccia.
+
+---
+
+# 12. Architettura della User Interface
+
+La GUI è organizzata attraverso alcune variabili globali principali.
+
+| Variabile          | Tipo            | Funzione                      |
+| ------------------ | --------------- | ----------------------------- |
+| `currentPage`      | `int`           | Schermata attiva, 0–6         |
+| `forceRedraw`      | `bool`          | Richiede ridisegno completo   |
+| `touchStartX/Y`    | `int`           | Coordinate iniziali del touch |
+| `editP`            | `int`           | Pompa in modifica             |
+| `eS_mins`          | `int`           | Ora di inizio modificabile    |
+| `eE_mins`          | `int`           | Ora di fine modificabile      |
+| `animFrame`        | `int`           | Contatore animazioni          |
+| `sysBright`        | `int`           | Luminosità                    |
+| `sysVolume`        | `int`           | Volume                        |
+| `isSleeping`       | `bool`          | Stato sleep del display       |
+| `lastActivity`     | `unsigned long` | Ultima attività touch         |
+| `lastTeleReceived` | `long`          | Ultima telemetria valida      |
+
+---
+
+# 13. Ciclo di rendering
+
+La funzione principale dell'interfaccia è:
+
+```cpp
 updateUI()
 ```
 
-Il ridisegno è quindi limitato alle aree e agli elementi necessari.
+Questa funzione:
 
-`drawHeader(titolo)`:
+1. reimposta il testo a dimensione `1`;
+2. identifica la pagina corrente;
+3. richiama la relativa funzione `drawPageN()`;
+4. aggiorna header e footer;
+5. gestisce il ridisegno dell'interfaccia.
 
-* barra superiore da `y=0` a `y=25`;
-* icona batteria + percentuale;
-* orologio (`teleData.ora`, TR);
-* titolo centrale;
-* **7 indicatori di navigazione**, con quello corrente evidenziato.
+La struttura generale è:
 
-`drawFooter()`:
+```text
+updateUI()
+     │
+     ├── drawPage0()
+     ├── drawPage1()
+     ├── drawPage2()
+     ├── drawPage3()
+     ├── drawPage4()
+     ├── drawPage5()
+     └── drawPage6()
+```
 
-* barra inferiore da `y=220` a `y=240`;
-* visualizza `RADIO: ONLINE` in ciano oppure `RADIO: DISCONNESSO` in rosso;
-* determina lo stato in base a `lastTeleReceived < 6000 ms`;
-* gestisce anche i LED di stato.
+Le animazioni vengono aggiornate ogni circa:
 
-### 5.3 Funzioni Grafiche Ausiliarie
+```text
+300 ms
+```
 
-| Funzione                                      | Descrizione                                                             |
-| --------------------------------------------- | ----------------------------------------------------------------------- |
-| `drawRoundButton(x,y,w,h,label,bg,fg,active)` | Pulsante arrotondato generico                                           |
-| `drawPill(x,y,w,h,lbl,on)`                    | Indicatore "pill" P1/P2/ON-OFF utilizzato nella schermata STATO SISTEMA |
-| `drawGearSmall(cx,cy,r,ang,c)`                | Ingranaggio animato                                                     |
-| `drawStylizedCloud(...)`                      | Nuvola stilizzata nella schermata METEO                                 |
-| `drawThinkingBrain(cx,cy,active)`             | Cervello animato nella schermata SMART IA                               |
-| `drawBar(x,y,w,h,percent,color,label)`        | Barra di avanzamento                                                    |
-| `drawRssiTower(x,y,rssi)`                     | Indicatore del segnale Wi-Fi nella schermata RETE                       |
-| `formatTime(m)`                               | Conversione da minuti a formato `"HH:MM"`                               |
+tramite:
+
+```text
+animFrame++
+```
 
 ---
 
-# 6. Le 7 Schermate
+# 14. Header
 
-## 6.1 Schermata 0 — `STATO SISTEMA`
+L'header occupa la parte superiore del display:
 
-Funzioni:
+```text
+Y = 0–25
+```
 
-`drawPage0()` → `drawStatoSistema()`
+Contiene:
 
-La schermata replica la schermata principale del sistema.
+* icona batteria;
+* percentuale batteria;
+* ora;
+* titolo della schermata;
+* indicatori di comunicazione;
+* 7 punti di navigazione.
+
+I punti permettono di identificare visivamente la schermata attiva.
+
+```text
+● ○ ○ ○ ○ ○ ○
+```
+
+---
+
+# 15. Footer
+
+Il footer occupa la parte inferiore:
+
+```text
+Y = 220–239
+```
+
+Mostra lo stato della comunicazione radio:
+
+```text
+RADIO: ONLINE
+```
+
+oppure:
+
+```text
+RADIO: DISCONNESSO
+```
+
+Lo stato viene determinato in base al tempo trascorso dall'ultima telemetria valida.
+
+La soglia utilizzata è:
+
+```text
+6000 ms
+```
+
+I LED RGB vengono inoltre utilizzati per rappresentare lo stato della comunicazione.
+
+---
+
+# 16. Funzioni grafiche principali
+
+L'interfaccia utilizza diverse funzioni grafiche riutilizzabili.
+
+| Funzione              | Descrizione                   |
+| --------------------- | ----------------------------- |
+| `drawRoundButton()`   | Pulsante arrotondato          |
+| `drawPill()`          | Indicatore P1/P2 e ON/OFF     |
+| `drawGearSmall()`     | Ingranaggio animato           |
+| `drawStylizedCloud()` | Nuvola meteorologica          |
+| `drawThinkingBrain()` | Cervello animato per SMART IA |
+| `drawBar()`           | Barra percentuale             |
+| `drawRssiTower()`     | Indicatore segnale Wi-Fi      |
+| `formatTime()`        | Conversione minuti → HH:MM    |
+
+L'utilizzo di funzioni grafiche riutilizzabili permette di mantenere coerente l'aspetto dell'interfaccia tra le diverse schermate.
+
+---
+
+# 17. Le 7 schermate
+
+Il Remote Control dispone di **7 schermate principali**, numerate da `0` a `6`.
+
+```text
+0 — STATO SISTEMA
+1 — POZZO / ACQUA
+2 — PROGRAMMAZIONE
+3 — METEO
+4 — SMART IA
+5 — AUDIO E SCHERMO
+6 — RETE WI-FI
+```
+
+---
+
+# 18. Schermata 0 — STATO SISTEMA
+
+La schermata principale replica le informazioni essenziali dello stato dell'impianto.
 
 Visualizza:
 
-* scheda **POMPA 1**;
-* scheda **POMPA 2**;
-* stato delle pompe;
+* Pompa 1;
+* Pompa 2;
 * percentuale di umidità;
-* barra/indicatore;
-* animazione dell'ingranaggio;
-* pannello **AMBIENTE**;
+* stato delle pompe;
 * temperatura;
 * umidità dell'aria;
-* stato **POZZO**;
-* informazioni meteorologiche.
+* stato del pozzo;
+* informazioni meteorologiche;
+* stato della comunicazione.
 
-### Interazione Touch
+Le pompe sono rappresentate tramite card dedicate.
 
-**Schede pompe — `y=30–136`:**
+Quando una pompa è attiva, l'interfaccia può visualizzare un'animazione con ingranaggio/flusso.
 
-```text
-x < 160  → alterna Pompa 1
-x ≥ 160  → alterna Pompa 2
-```
+### Interazione
 
-**Badge POZZO — `y=150–190`, `x > 214`:**
+Le aree touch principali sono:
 
 ```text
-→ alterna stato Pozzo
+┌─────────────────────┬─────────────────────┐
+│                     │                     │
+│       POMPA 1       │       POMPA 2       │
+│                     │                     │
+└─────────────────────┴─────────────────────┘
 ```
 
-L'interfaccia utilizza un aggiornamento ottimistico locale:
+Con:
 
 ```text
-teleData.statoP1 = !teleData.statoP1
+x < 160 → Pompa 1
+x ≥ 160 → Pompa 2
 ```
 
-seguito dall'invio del comando all'unità principale.
+Per il pozzo:
+
+```text
+y = 150–190
+x > 214
+```
+
+Il comando viene inviato all'unità principale e lo stato locale viene aggiornato in modo ottimistico.
 
 ---
 
-## 6.2 Schermata 1 — `POZZO / ACQUA`
+# 19. Schermata 1 — POZZO / ACQUA
 
-Funzione:
+Questa schermata è dedicata alla gestione e visualizzazione delle informazioni relative all'acqua.
 
-`drawPage1()` → `drawWaterScreen()`
+Visualizza:
 
-La schermata visualizza:
+* livello del serbatoio;
+* percentuale disponibile;
+* stato dell'acqua;
+* stato della pompa pozzo;
+* animazione del livello dell'acqua;
+* onde e bolle;
+* indicazione del flusso quando il pozzo è attivo.
 
-* serbatoio animato;
-* onde dell'acqua;
-* bolle;
-* getto del pozzo quando attivo;
-* percentuale dell'acqua;
-* stato `ACQUA DISPONIBILE`;
-* stato `LIVELLO CRITICO`;
-* stato della **POMPA POZZO**.
+### Interazione
 
-### Interazione Touch
+Il pulsante:
 
-Pulsante **POMPA POZZO**:
+```text
+POMPA POZZO
+```
+
+può essere utilizzato per alternare lo stato della pompa.
+
+Area principale:
 
 ```text
 y = 162–184
 x = 128–308
 ```
 
-L'interazione alterna lo stato del pozzo.
-
 ---
 
-## 6.3 Schermata 2 — `PROGRAMMAZIONE`
+# 20. Schermata 2 — PROGRAMMAZIONE
 
-Funzione:
+La schermata di programmazione permette di configurare l'orario di funzionamento delle pompe.
 
-`drawPage2()`
-
-La schermata contiene:
-
-* scheda **POMPA 1**;
-* scheda **POMPA 2**;
-* orario **INIZIO**;
-* orario **FINE**;
-* pulsanti `–` e `+`;
-* incremento di 15 minuti;
-* orari visualizzati in formato grande;
-* pulsante **SALVA**.
-
-### Selezione della Pompa
-
-Area:
+Sono disponibili due schede:
 
 ```text
-y = 30–56
-
-x = 20–150   → modifica Pompa 1
-x = 170–300  → modifica Pompa 2
+[POMPA 1]       [POMPA 2]
 ```
 
-Quando viene selezionata una pompa, vengono caricati i relativi valori:
+Per ogni pompa è possibile modificare:
+
+* ora di inizio;
+* ora di fine;
+* salvare la programmazione.
+
+La regolazione avviene con incrementi di:
 
 ```text
-prog1_Start / prog1_End
+15 minuti
 ```
 
-oppure:
-
-```text
-prog2_Start / prog2_End
-```
-
-### Modifica INIZIO
-
-Area:
-
-```text
-y = 82–116
-```
-
-```text
-x = 100–140 → diminuisce
-x = 240–280 → aumenta
-```
-
-Passo:
-
-```text
-±15 minuti
-```
-
-Intervallo:
+con ritorno ciclico nell'intervallo:
 
 ```text
 0–1439 minuti
 ```
 
-con gestione circolare (`wrap`).
+### Selezione pompa
 
-### Modifica FINE
+```text
+x = 20–150   → Pompa 1
+x = 170–300  → Pompa 2
+```
 
-Area:
+### Modifica inizio
+
+```text
+y = 82–116
+
+x = 100–140 → diminuisce
+x = 240–280 → aumenta
+```
+
+### Modifica fine
 
 ```text
 y = 130–164
 ```
 
-Con la stessa logica:
-
-```text
-x = 100–140 → diminuisce
-x = 240–280 → aumenta
-```
+con la stessa logica dei pulsanti `–` e `+`.
 
 ### Salvataggio
 
-Area:
+Il pulsante:
 
 ```text
-y = 170–200
+SALVARE
 ```
 
-L'operazione invia:
+invia:
 
-* `setProgPompa`;
-* `pStartH`;
-* `pStartM`;
-* `pEndH`;
-* `pEndM`.
+```text
+setProgPompa
+pStartH
+pStartM
+pEndH
+pEndM
+```
 
-Dopo il salvataggio viene visualizzato:
+e visualizza temporaneamente:
 
 ```text
 SALVATO!
 ```
 
-per circa 1 secondo.
-
-> ⚠️ **Il protocollo supporta una sola programmazione per pompa.**
->
-> La schermata Remote Control gestisce quindi un unico intervallo di programmazione per Pompa 1 e un unico intervallo per Pompa 2.
+> **Nota:** il protocollo attuale supporta una programmazione per pompa. Non sono presenti tre slot indipendenti per ogni pompa.
 
 ---
 
-## 6.4 Schermata 3 — `METEO`
+# 21. Schermata 3 — METEO
 
-Funzione:
+La schermata meteorologica visualizza i dati ricevuti dall'unità principale.
 
-`drawPage3()` → `drawMeteoScreen()`
+Informazioni principali:
 
-La schermata visualizza le informazioni meteorologiche ricevute dall'unità principale.
+* descrizione del tempo;
+* temperatura;
+* umidità;
+* eventuale previsione di pioggia;
+* stato del servizio meteorologico.
 
-L'icona meteorologica viene animata in base a:
+L'icona meteorologica viene determinata sulla base di:
 
-* `teleData.meteo`;
-* ora corrente.
+```text
+teleData.meteo
++
+ora del sistema
+```
 
-Sono supportate rappresentazioni come:
+Sono supportate rappresentazioni grafiche per condizioni come:
 
 * sole;
 * luna;
-* nuvola;
+* nuvoloso;
 * pioggia;
 * temporale;
 * neve.
 
-Vengono inoltre visualizzati:
+Se OpenWeather non è configurato nel sistema principale, viene visualizzato un messaggio informativo.
 
-* temperatura;
-* umidità.
+### Interazione
 
-Se OpenWeather non è configurato, viene visualizzato:
+La schermata è esclusivamente informativa:
 
 ```text
-Non configurato nel sistema
+Touch → nessuna azione
 ```
-
-### Interazione Touch
-
-Nessuna.
-
-La schermata è esclusivamente informativa.
 
 ---
 
-## 6.5 Schermata 4 — `SMART IA`
+# 22. Schermata 4 — SMART IA
 
-Funzione:
+La schermata SMART IA visualizza lo stato del sistema di irrigazione adattivo.
 
-`drawPage4()` → `drawSmartScreen()`
+Visualizza:
 
-La schermata visualizza:
-
-* animazione del cervello;
-* stato del sistema IA;
-* badge **ATTIVATO / DISATTIVATO**;
+* stato SMART;
+* stato attivato/disattivato;
 * efficienza Pompa 1;
 * efficienza Pompa 2;
 * score Pompa 1;
 * score Pompa 2.
 
-I valori delle metriche provengono dall'unità principale.
+L'interfaccia utilizza un'animazione grafica del cervello per rappresentare il sistema SMART.
 
-### Interazione Touch
+### Interazione
 
-Qualsiasi punto dell'area principale può essere utilizzato per alternare la modalità IA:
-
-```text
-y = 28–218
-x = 5–315
-```
-
-Il sistema utilizza un aggiornamento ottimistico:
+Il tocco nell'area principale può alternare:
 
 ```text
-teleData.smartMode = !teleData.smartMode
+SMART IA
+ATTIVATO
+      ↕
+DISATTIVATO
 ```
 
-Il comando viene successivamente inviato all'unità principale.
+Il comando viene inviato tramite:
 
-L'azione è protetta contro le gesture swipe, come descritto nella sezione 7.
+```text
+cmdSmartMode
+```
+
+Il sistema utilizza inoltre una protezione specifica per distinguere il tocco da uno swipe.
+
+Questo evita che lo scorrimento verso una schermata adiacente possa modificare accidentalmente la modalità SMART.
 
 ---
 
-## 6.6 Schermata 5 — `AUDIO E SCHERMO`
+# 23. Schermata 5 — AUDIO E SCHERMO
 
-Funzione:
+Questa schermata gestisce i parametri dell'interfaccia locale.
 
-`drawPage5()`
-
-La schermata contiene due gruppi di controllo.
-
-### Volume Suono
+Sono disponibili due controlli:
 
 ```text
-[ - ]      100%      [ + ]
+VOLUME SUONO
 ```
 
-Area:
+e:
 
 ```text
-y = 80–120
+LUMINOSITÀ SCHERMO
+```
 
-x = 60–110  → diminuisce
-x = 210–260 → aumenta
+### Volume
+
+Intervallo:
+
+```text
+0–100
 ```
 
 Passo:
@@ -565,25 +889,19 @@ Passo:
 ±10
 ```
 
+Area touch:
+
+```text
+x = 60–110 → diminuisce
+x = 210–260 → aumenta
+```
+
+### Luminosità
+
 Intervallo:
 
 ```text
-0–100
-```
-
-### Luminosità Schermo
-
-```text
-[ - ]      100%      [ + ]
-```
-
-Area:
-
-```text
-y = 160–200
-
-x = 60–110  → diminuisce
-x = 210–260 → aumenta
+10–255
 ```
 
 Passo:
@@ -592,166 +910,189 @@ Passo:
 ±25
 ```
 
-Intervallo:
+Il valore viene applicato direttamente al backlight tramite:
 
-```text
-10–255
-```
-
-La luminosità viene applicata direttamente al backlight tramite:
-
-```text
-analogWrite(PIN_BL, ...)
+```cpp
+analogWrite(PIN_BL, sysBright);
 ```
 
 ---
 
-## 6.7 Schermata 6 — `RETE WI-FI`
+# 24. Schermata 6 — RETE WI-FI
 
-Funzione:
+La schermata di rete visualizza le informazioni della connessione dell'unità principale.
 
-`drawPage6()`
+Visualizza:
 
-La schermata visualizza le informazioni di rete dell'unità principale:
+* SSID;
+* livello RSSI;
+* indirizzo IP;
+* MAC address;
+* stato della rete.
 
-* **SSID**;
-* intensità del segnale tramite indicatore RSSI;
-* **IP**;
-* **MAC Address**.
+Il livello RSSI viene rappresentato graficamente tramite una torre di segnale.
 
-### Interazione Touch
+### Interazione
 
-Nessuna.
+La schermata è informativa:
 
-La schermata è esclusivamente informativa.
+```text
+Touch → nessuna azione
+```
 
 ---
 
-# 7. Logica Touch — Tap vs Swipe
+# 25. Navigazione tramite Swipe
 
-Nel `loop()`, quando viene rilevato:
+La navigazione tra le sette schermate utilizza gesti orizzontali.
 
-```text
-touch.Pressed() && !RTP_IRQ
-```
-
-viene eseguita la seguente sequenza:
-
-### 1. Risveglio del Display
-
-Se il display è in modalità sleep, viene riattivato.
-
-### 2. Lettura del Touch
-
-Vengono lette le coordinate:
+Parametri:
 
 ```text
-x, y
+SWIPE_THRESHOLD = 60 px
+SWIPE_MAX_MS    = 800 ms
 ```
 
-e viene memorizzata:
+Sequenza:
+
+```text
+STATO SISTEMA
+      ↓
+POZZO / ACQUA
+      ↓
+PROGRAMMAZIONE
+      ↓
+METEO
+      ↓
+SMART IA
+      ↓
+AUDIO E SCHERMO
+      ↓
+RETE WI-FI
+```
+
+Lo swipe viene riconosciuto confrontando:
 
 ```text
 touchStartX
 ```
 
-### 3. Gestione della Schermata
+con la posizione finale del dito.
 
-Viene eseguito l'handler associato alla schermata corrente, utilizzando le aree touch definite nella sezione 6.
-
-### 4. Rilevamento Swipe
-
-Durante il mantenimento del touch viene eseguito un ciclo `while` che legge `endX` fino al rilascio del dito.
-
-Se:
+Quando:
 
 ```text
 |touchStartX - endX| > 60
 ```
 
-viene riconosciuta una gesture swipe.
+il sistema interpreta il gesto come navigazione.
 
-La schermata viene quindi modificata:
-
-```text
-currentPage
-```
-
-limitandola all'intervallo:
+La pagina viene mantenuta nell'intervallo:
 
 ```text
 0–6
 ```
 
-e l'interfaccia viene ridisegnata.
+---
 
-### 5. Protezione SMART IA
+# 26. Gestione TAP vs SWIPE
 
-Nella schermata 4, il touch non attiva immediatamente il cambio di modalità.
+La logica di interazione segue questo flusso:
 
-Viene prima impostato:
+```text
+Touch rilevato
+      │
+      ▼
+Lettura X/Y
+      │
+      ▼
+Memorizzazione touchStartX
+      │
+      ▼
+Gestione comando pagina
+      │
+      ▼
+Rilevazione movimento
+      │
+      ▼
+|ΔX| > 60 ?
+   │          │
+  NO         SI
+   │          │
+   ▼          ▼
+  TAP        SWIPE
+   │          │
+   ▼          ▼
+Comando     Cambio pagina
+```
+
+Nel caso specifico della schermata SMART IA, il comando viene prima memorizzato come:
 
 ```text
 pendingSmartToggle
 ```
 
-Il cambio di stato viene eseguito solamente quando:
+e viene eseguito solamente quando viene confermato che il gesto non era uno swipe.
 
-```text
-!didSwipe
-```
-
-In questo modo uno swipe tra le schermate non può accidentalmente attivare o disattivare la modalità SMART IA.
+Questo meccanismo impedisce l'attivazione involontaria dello SMART durante la navigazione.
 
 ---
 
-# 8. Modalità Sleep
+# 27. Modalità Sleep
 
-Dopo **30 secondi** senza interazione touch:
+Il display dispone di una modalità di risparmio energetico.
+
+Dopo:
+
+```text
+30 secondi
+```
+
+senza interazione touch:
 
 ```text
 lastActivity
-```
-
-il sistema entra gradualmente in modalità sleep.
-
-Il backlight viene ridotto progressivamente fino a:
-
-```text
-0
-```
-
-e:
-
-```text
+      ↓
+timeout
+      ↓
+riduzione graduale backlight
+      ↓
 isSleeping = true
 ```
 
-Qualsiasi nuovo touch:
+Il backlight viene ridotto progressivamente fino allo spegnimento.
 
-* riattiva il display;
-* ripristina il backlight;
-* aggiorna l'attività dell'utente.
+Un nuovo tocco:
+
+```text
+Touch
+ ↓
+Wake-up
+ ↓
+Ripristino display
+```
 
 ---
 
-# 9. Sistema Audio
+# 28. Sistema audio
 
-Il Remote Control dispone di feedback sonoro locale.
+Il Remote Control dispone di feedback sonoro.
 
-### `playClick()`
+## Click
 
-Genera un bip a:
+La funzione:
+
+```cpp
+playClick()
+```
+
+genera un tono di:
 
 ```text
 3000 Hz
 ```
 
-La durata è proporzionale a:
-
-```text
-sysVolume
-```
+La durata dipende dal volume configurato.
 
 Quando:
 
@@ -759,131 +1100,173 @@ Quando:
 sysVolume = 0
 ```
 
-l'audio viene disattivato.
+il sistema rimane silenzioso.
 
-### `playBootSound()`
+## Suono di avvio
 
-Durante l'avvio viene riprodotta una sequenza composta da **4 toni**.
+La funzione:
+
+```cpp
+playBootSound()
+```
+
+riproduce una sequenza di quattro toni durante l'avvio del dispositivo.
 
 ---
 
-# 10. Sequenza di Avvio — `setup()`
+# 29. Sequenza di Boot
 
-Durante l'avvio del sistema vengono eseguite le seguenti operazioni:
-
-### 1. Inizializzazione Hardware
-
-* inizializzazione dei pin;
-* seriale;
-* backlight;
-* LED.
-
-### 2. Inizializzazione Display
+La procedura di avvio segue una sequenza definita.
 
 ```text
-tft.init()
-setRotation(1)
+1. Inizializzazione GPIO
+        ↓
+2. Inizializzazione Serial
+        ↓
+3. Configurazione backlight
+        ↓
+4. Configurazione LED
+        ↓
+5. Inizializzazione audio
+        ↓
+6. Inizializzazione TFT
+        ↓
+7. setRotation(1)
+        ↓
+8. Visualizzazione splash screen
+        ↓
+9. Calibrazione touch
+        ↓
+10. Inizializzazione ESP-NOW
+        ↓
+11. Inizializzazione comandi
+        ↓
+12. Avvio interfaccia
 ```
 
-Successivamente viene visualizzata la schermata iniziale tramite:
+Lo splash screen utilizza il logo definito in:
 
 ```text
-renderSplash()
+logo.h
 ```
-
-utilizzando il logo definito in `logo.h`.
-
-### 3. Touch e Comunicazione
-
-* calibrazione del touch;
-* inizializzazione ESP-NOW.
-
-```text
-initESPNOW()
-```
-
-### 4. Inizializzazione dei Comandi
-
-Tutti i comandi vengono inizializzati a:
-
-```text
--1
-```
-
-in modo da evitare l'invio accidentale di comandi durante l'avvio.
 
 ---
 
-# 11. Punti di Attenzione e Manutenzione
+# 30. Palette grafica
 
-### 1. Sincronizzazione dei Firmware
+L'interfaccia utilizza una palette definita per mantenere una rappresentazione coerente dello stato del sistema.
 
-Quando viene modificata:
+| Nome             | Hex      | Utilizzo              |
+| ---------------- | -------- | --------------------- |
+| `COLOR_BG`       | `0x0821` | Sfondo principale     |
+| `COLOR_ACCENT`   | `0x07E0` | Colore di evidenza    |
+| `COLOR_BLUE`     | `0x041F` | Blu                   |
+| `COLOR_RED`      | `0xF800` | Rosso / stato critico |
+| `COLOR_TEXT`     | `0xFFFF` | Testo                 |
+| `COLOR_DARK`     | `0x2124` | Barre e fondi scuri   |
+| `COLOR_WARN`     | `0xFFE0` | Avviso                |
+| `COLOR_SUCCESS`  | `0x07E4` | Successo              |
+| `COLOR_CRITICAL` | `0xF800` | Critico               |
+| `COLOR_WARNING`  | `0xFEA0` | Avviso arancione      |
+| `COLOR_INFO`     | `0x07FF` | Informazioni SMART    |
+| `COLOR_MUTED`    | `0x8C71` | Testo secondario      |
+| `COLOR_WATER`    | `0x1CFF` | Acqua                 |
+| `COLOR_FLOWER_R` | `0xF9A0` | Sole / arancione      |
+| `COLOR_CARD`     | `0x0861` | Card                  |
+| `COLOR_TOUCH`    | `0x5D7F` | Interazione touch     |
 
-```text
-struct_telemetry
-```
+---
 
-o:
+# 31. Principi di progettazione
+
+Il progetto è stato sviluppato seguendo alcuni principi fondamentali.
+
+### Separazione delle responsabilità
+
+L'unità principale gestisce l'impianto mentre il Remote Control gestisce l'interfaccia utente locale.
+
+### Comunicazione wireless
+
+ESP-NOW permette una comunicazione diretta tra i nodi embedded.
+
+### Interfaccia locale
+
+Il dispositivo funziona come pannello di controllo dedicato senza richiedere PC o smartphone.
+
+### Feedback visivo
+
+Lo stato delle pompe, della rete e della comunicazione viene rappresentato graficamente.
+
+### Feedback sonoro
+
+Le interazioni dell'utente possono produrre un feedback acustico.
+
+### Modularità
+
+Il Remote Control è mantenuto come progetto separato rispetto al firmware principale dell'irrigazione.
+
+---
+
+# 32. Considerazioni di manutenzione
+
+## Compatibilità delle strutture
+
+Quando vengono modificate:
 
 ```text
 struct_command
+struct_telemetry
 ```
 
-è necessario aggiornare e programmare **entrambi i firmware**:
+è necessario aggiornare entrambi i firmware.
 
 ```text
-ESP32 Smart Irrigation
-        +
-Tech3D Remote Control
+MAIN
+ │
+ ├── modifica struttura
+ │
+ ▼
+REMOTE
+ │
+ └── stessa struttura
 ```
+
+I due dispositivi devono essere ricompilati e aggiornati insieme.
 
 ---
 
-### 2. Gestione della Dimensione del Testo
+## Dimensione del testo
 
 L'header e il footer utilizzano esplicitamente:
 
-```text
-setTextSize(1)
+```cpp
+setTextSize(1);
 ```
 
-Le schermate che utilizzano dimensioni di testo maggiori devono considerare che:
+Le schermate che utilizzano dimensioni maggiori devono ripristinare la dimensione del testo quando necessario.
 
-```text
-updateUI()
-```
-
-riporta la dimensione a `1`.
-
-Questo evita che una dimensione di testo impostata in una schermata venga mantenuta accidentalmente nelle schermate successive.
-
-Questa gestione è stata introdotta anche per evitare un problema precedente in cui alcuni testi venivano visualizzati con dimensioni eccessive.
+Questa gestione evita che una dimensione di testo impostata da una schermata venga mantenuta accidentalmente nelle schermate successive.
 
 ---
 
-### 3. Allineamento delle Coordinate Touch
+## Coordinate touch
 
-Le coordinate utilizzate nel `loop()` devono rimanere sempre coerenti con le posizioni grafiche definite nelle rispettive funzioni:
+Le coordinate delle aree touch devono rimanere allineate alle coordinate utilizzate durante il rendering grafico.
 
-```text
-drawPageN()
-```
-
-Una modifica alla posizione di un pulsante deve quindi essere accompagnata dall'aggiornamento della relativa area touch.
+Una modifica grafica deve quindi essere verificata anche nella relativa logica touch.
 
 ---
 
-### 4. Programmazione
+## Programmazione
 
-Il Remote Control supporta:
+Il protocollo attuale supporta:
 
 ```text
 1 programmazione per Pompa 1
 1 programmazione per Pompa 2
 ```
 
-La schermata Programmazione modifica una pompa alla volta tramite:
+La schermata modifica una pompa alla volta tramite:
 
 ```text
 editP
@@ -891,140 +1274,202 @@ editP
 
 ---
 
-### 5. Magic Number
+## Magic Number
 
-Il protocollo utilizza due valori di validazione:
+I valori:
 
 ```text
-Comando:
-12345
-
-Telemetria:
-54321
+12345 → comandi
+54321 → telemetria
 ```
 
-Questi valori vengono utilizzati per verificare che i pacchetti ricevuti appartengano al protocollo previsto.
-
-Non devono essere rimossi o modificati senza aggiornare entrambi i dispositivi.
+vengono utilizzati come identificatori di validazione del protocollo e non devono essere modificati indipendentemente sui due dispositivi.
 
 ---
 
-# 12. Estensione del Sistema — Aggiunta di una 8ª Schermata
+# 33. Estensione futura dell'interfaccia
 
-L'architettura è stata progettata in modo da poter essere estesa.
+L'architettura è stata predisposta per poter aggiungere ulteriori schermate.
 
-Per aggiungere una nuova schermata:
+Per aggiungere una nuova schermata sarebbe necessario:
 
-### 1. Creare `drawPage7()`
+1. creare una nuova funzione `drawPageN()`;
+2. aggiungere la relativa gestione in `updateUI()`;
+3. aggiungere la gestione touch;
+4. aggiornare il limite della navigazione;
+5. aggiornare il numero dei punti di navigazione nell'header;
+6. aggiungere eventuali nuovi dati alla struttura di telemetria;
+7. aggiornare e ricompilare entrambi i firmware se il protocollo cambia.
 
-Seguire il pattern esistente:
-
-```text
-if(forceRedraw) {
-    fillScreen(COLOR_BG);
-    drawHeader(...);
-    forceRedraw = false;
-}
-
-...
-
-drawFooter();
-```
-
-### 2. Aggiornare `updateUI()`
-
-Aggiungere:
+L'aggiunta di una nuova schermata deve quindi mantenere la coerenza tra:
 
 ```text
-case 7:
-    drawPage7();
-    break;
+UI
+│
+├── Rendering
+├── Touch
+├── Navigazione
+└── Protocollo dati
 ```
-
-### 3. Aggiungere il Gestore Touch
-
-Nel `loop()`:
-
-```text
-else if (currentPage == 7) {
-    ...
-}
-```
-
-### 4. Aggiornare la Navigazione
-
-Modificare il limite:
-
-```text
-currentPage > 6
-```
-
-in:
-
-```text
-currentPage > 7
-```
-
-e aggiornare il numero degli indicatori nel `drawHeader()`:
-
-```text
-i < 7
-```
-
-in:
-
-```text
-i < 8
-```
-
-### 5. Aggiornare il Protocollo
-
-Se la nuova schermata richiede dati provenienti dall'unità principale, sarà necessario aggiornare:
-
-```text
-struct_telemetry
-```
-
-e successivamente ricompilare e programmare **entrambi i firmware**.
 
 ---
 
-# 13. Riepilogo Tecnico
+# 34. Competenze tecniche dimostrate
 
-| Caratteristica      | Implementazione                    |
-| ------------------- | ---------------------------------- |
-| MCU                 | ESP32-S3                           |
-| Display             | TFT 240×320 fisico                 |
-| Canvas logico       | 320×240 landscape                  |
-| Touch               | Resistivo XPT2046 / TFT_Touch      |
-| Comunicazione       | ESP-NOW                            |
-| Modalità wireless   | Broadcast                          |
-| Crittografia        | Non utilizzata                     |
-| Schermate           | 7                                  |
-| Navigazione         | Touch + Swipe                      |
-| Feedback            | Display + LED + Audio              |
-| Backlight           | PWM                                |
-| Batteria            | ADC                                |
-| Firmware            | C++ / Arduino                      |
-| Librerie principali | TFT_eSPI, TFT_Touch, WiFi, esp_now |
-| Architettura        | Sistema Embedded Distribuito       |
+Il progetto dimostra esperienza pratica nei seguenti ambiti.
+
+### Embedded Systems
+
+* ESP32 / ESP32-S3;
+* programmazione C++;
+* Arduino framework;
+* GPIO;
+* ADC;
+* PWM;
+* gestione periferiche;
+* interfacce embedded.
+
+### Comunicazione
+
+* ESP-NOW;
+* comunicazione ESP32-to-ESP32;
+* pacchetti strutturati;
+* validazione tramite `magicNumber`;
+* gestione timeout;
+* channel hopping;
+* architetture embedded distribuite.
+
+### Human-Machine Interface
+
+* TFT 320×240;
+* touch resistivo;
+* XPT2046;
+* GUI embedded;
+* touch interaction;
+* swipe gesture;
+* feedback visivo;
+* feedback acustico.
+
+### System Integration
+
+* integrazione con sistema di irrigazione;
+* telemetria wireless;
+* comandi remoti;
+* visualizzazione dati;
+* gestione stato;
+* integrazione tra nodi embedded.
 
 ---
 
-## 14. Finalità del Repository
+# 35. Struttura del progetto
 
-Il repository **Tech3D Remote Control** è stato realizzato come **portfolio tecnico**.
+Il repository è organizzato come documentazione tecnica di portfolio.
 
-Il firmware completo non viene pubblicato. La documentazione permette di analizzare:
+```text
+remote-control/
+│
+├── README.md
+│
+├── docs/
+│   ├── DOCUMENTAZIONE.md
+│   ├── ARCHITETTURA.md
+│   └── architettura.svg
+│
+└── images/
+    ├── remote-00.jpeg
+    ├── remote-01.jpeg
+    ├── remote-02.jpeg
+    ├── remote-03.jpeg
+    ├── remote-04.jpeg
+    ├── remote-05.jpeg
+    ├── remote-06.jpeg
+    └── remote-07.jpeg
+```
 
-* l'architettura del sistema;
-* la comunicazione ESP-NOW;
-* il protocollo dati;
-* la gestione del display;
-* il sistema touch;
-* la navigazione tramite swipe;
-* la progettazione delle 7 schermate;
-* la gestione degli stati;
-* l'integrazione con il sistema Smart Irrigation.
+Il firmware sorgente non è incluso nel repository pubblico.
 
-L'obiettivo è dimostrare competenze pratiche nello sviluppo di **sistemi embedded, interfacce HMI, comunicazione wireless e integrazione di dispositivi ESP32**.
+La documentazione e le immagini hanno lo scopo di mostrare:
+
+* architettura;
+* interfaccia;
+* comunicazione;
+* progettazione embedded;
+* integrazione del sistema;
+* soluzioni tecniche adottate.
+
+---
+
+# 36. Stato del progetto
+
+| Parametro     | Valore                          |
+| ------------- | ------------------------------- |
+| Piattaforma   | ESP32-S3                        |
+| Display       | TFT 240×320 fisico              |
+| Canvas        | 320×240 landscape               |
+| Touch         | XPT2046 resistivo               |
+| Comunicazione | ESP-NOW                         |
+| Firmware      | C++ / Arduino                   |
+| GUI           | TFT Touch Embedded UI           |
+| Navigazione   | Touch + Swipe                   |
+| Schermate     | 7                               |
+| Architettura  | Sistema Embedded Distribuito    |
+| Categoria     | Embedded / IoT / Remote Control |
+| Repository    | Portfolio tecnico               |
+
+---
+
+# 37. Collegamento con ESP32 Smart Irrigation
+
+Il Remote Control fa parte dell'ecosistema **ESP32 Smart Irrigation**, ma viene mantenuto in un repository separato.
+
+```text
+┌──────────────────────────────────┐
+│      ESP32 Smart Irrigation      │
+│                                  │
+│      Unità principale            │
+│      Controllo irrigazione       │
+└────────────────┬─────────────────┘
+                 │
+                 │ ESP-NOW
+                 ▼
+┌──────────────────────────────────┐
+│       Tech3D Remote Control      │
+│                                  │
+│       Interfaccia wireless       │
+│       TFT + Touch                │
+└──────────────────────────────────┘
+```
+
+La separazione dei repository consente di documentare in modo indipendente le responsabilità tecniche dei due dispositivi, mantenendo allo stesso tempo evidente la loro integrazione all'interno dello stesso sistema.
+
+---
+
+# 38. Sintesi tecnica
+
+Il **Tech3D Remote Control** rappresenta un esempio di interfaccia embedded wireless progettata per interagire con un sistema IoT distribuito.
+
+Il progetto combina:
+
+```text
+ESP32-S3
+   +
+TFT 320×240
+   +
+Touch resistivo
+   +
+ESP-NOW
+   +
+Telemetria
+   +
+Comandi bidirezionali
+   +
+GUI embedded
+   +
+Gestione touch/swipe
+   +
+Feedback visivo e acustico
+```
+
+L'architettura separa il controllo dell'impianto dall'interfaccia utente, permettendo di realizzare un pannello di controllo dedicato, compatto e indipendente da PC o smartphone.
+
+Il progetto è presentato come **portfolio tecnico**, con particolare attenzione alle competenze di progettazione embedded, comunicazione wireless, interfacce uomo-macchina e integrazione di sistemi.
