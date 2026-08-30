@@ -1,94 +1,94 @@
-# System Architecture — Tech3D Remote Control
+# Architettura del Sistema — Tech3D Remote Control
 
-## 1. Overview
+## 1. Panoramica
 
-The Tech3D Remote Control is a dedicated embedded interface node designed to operate together with the **ESP32 Smart Irrigation** system.
+Il **Tech3D Remote Control** è un nodo di interfaccia embedded dedicato, progettato per funzionare insieme al sistema **ESP32 Smart Irrigation**.
 
-The architecture separates the irrigation control logic from the user interface.
+L'architettura separa la logica di controllo dell'irrigazione dall'interfaccia utente.
 
-The main controller is responsible for sensors, pumps, irrigation logic, SMART functions, weather data and system services.
+Il controller principale è responsabile dei sensori, delle pompe, della logica di irrigazione, delle funzioni SMART, dei dati meteorologici e dei servizi del sistema.
 
-The Remote Control provides a dedicated local interface for monitoring and interacting with selected system functions.
+Il Remote Control fornisce un'interfaccia locale dedicata per il monitoraggio e l'interazione con alcune funzioni del sistema.
 
-Communication between the two devices is handled through **ESP-NOW**.
+La comunicazione tra i due dispositivi avviene tramite **ESP-NOW**.
 
 ---
 
-## 2. High-Level Architecture
+## 2. Architettura ad Alto Livello
 
 ```text
                     ESP32 SMART IRRIGATION
-                         MAIN CONTROLLER
+                       CONTROLLER PRINCIPALE
                               │
        ┌──────────────────────┼──────────────────────┐
        │                      │                      │
        ▼                      ▼                      ▼
-    Sensors                 Pumps              System Logic
+    Sensori                 Pompe              Logica Sistema
        │                      │                      │
        └──────────────────────┼──────────────────────┘
                               │
                               │
-                         ESP-NOW LINK
+                       COLLEGAMENTO ESP-NOW
                               │
                               ▼
                     TECH3D REMOTE CONTROL
-                         ESP32 NODE
+                         NODO ESP32
                               │
              ┌────────────────┼────────────────┐
              │                │                │
              ▼                ▼                ▼
-          TFT 320×240      XPT2046          UI Logic
+          TFT 320×240      XPT2046          Logica UI
            Display          Touch
 ```
 
-The Remote Control does not replace the main irrigation controller.
+Il Remote Control non sostituisce il controller principale dell'impianto di irrigazione.
 
-It acts as a dedicated interface node within the distributed embedded system.
-
----
-
-## 3. Main Controller
-
-The **ESP32 Smart Irrigation** controller is responsible for the core functions of the irrigation system.
-
-Its responsibilities include:
-
-* soil monitoring;
-* water and well monitoring;
-* pump control;
-* irrigation scheduling;
-* SMART irrigation logic;
-* weather information;
-* Wi-Fi connectivity;
-* web interface;
-* Telegram integration;
-* system state management.
-
-The main controller remains the authoritative source for irrigation-related system information.
+Funziona come nodo di interfaccia dedicato all'interno del sistema embedded distribuito.
 
 ---
 
-## 4. Remote Control Node
+## 3. Controller Principale
 
-The Remote Control is based on a separate ESP32.
+Il controller **ESP32 Smart Irrigation** è responsabile delle funzioni principali dell'impianto di irrigazione.
 
-Its primary responsibilities are:
+Le sue responsabilità includono:
 
-* receiving system information;
-* displaying system status;
-* processing touch input;
-* handling screen navigation;
-* sending selected user commands;
-* displaying communication status;
-* providing local interface configuration.
+* monitoraggio dell'umidità del terreno;
+* monitoraggio dell'acqua e del pozzo;
+* controllo delle pompe;
+* programmazione dell'irrigazione;
+* logica di irrigazione SMART;
+* informazioni meteorologiche;
+* connettività Wi-Fi;
+* interfaccia web;
+* integrazione Telegram;
+* gestione dello stato del sistema.
 
-The device is designed around a **320×240 TFT display with an XPT2046 resistive touch controller**.
+Il controller principale rimane la fonte principale delle informazioni relative allo stato dell'impianto di irrigazione.
 
 ---
 
-## 5. Wireless Communication
+## 4. Nodo Remote Control
 
-The communication layer uses **ESP-NOW**.
+Il Remote Control è basato su un ESP32 separato.
+
+Le sue principali responsabilità sono:
+
+* ricevere le informazioni dal sistema;
+* visualizzare lo stato dell'impianto;
+* elaborare gli input touch;
+* gestire la navigazione tra le schermate;
+* inviare i comandi utente selezionati;
+* visualizzare lo stato della comunicazione;
+* fornire la configurazione dell'interfaccia locale.
+
+Il dispositivo è progettato attorno a un **display TFT 320×240 con controller touch resistivo XPT2046**.
+
+---
+
+## 5. Comunicazione Wireless
+
+Il livello di comunicazione utilizza **ESP-NOW**.
 
 ```text
 ┌──────────────────────────┐
@@ -105,23 +105,23 @@ The communication layer uses **ESP-NOW**.
 └──────────────────────────┘
 ```
 
-ESP-NOW provides a direct wireless communication channel between the embedded devices.
+ESP-NOW fornisce un canale di comunicazione wireless diretto tra i dispositivi embedded.
 
-This allows the Remote Control to exchange system information and selected control commands without relying on a traditional TCP/IP connection between the two devices.
+Questo permette al Remote Control di scambiare informazioni sul sistema e determinati comandi di controllo senza dipendere da una connessione TCP/IP tradizionale tra i due dispositivi.
 
 ---
 
-## 6. Data Flow
+## 6. Flusso dei Dati
 
-The general data flow can be represented as:
+Il flusso generale dei dati può essere rappresentato come segue:
 
 ```text
-Sensors / System Logic
+Sensori / Logica Sistema
           │
           ▼
-   Main Controller
+   Controller Principale
           │
-          │ system data
+          │ dati sistema
           ▼
        ESP-NOW
           │
@@ -129,35 +129,35 @@ Sensors / System Logic
    Remote Control
           │
           ▼
-      TFT Display
+      Display TFT
 ```
 
-For user interaction:
+Per l'interazione dell'utente:
 
 ```text
-Touch Input
+Input Touch
      │
      ▼
 Remote Control
      │
-     │ command
+     │ comando
      ▼
   ESP-NOW
      │
      ▼
-Main Controller
+Controller Principale
      │
      ▼
-Irrigation System
+Impianto di Irrigazione
 ```
 
-This creates a bidirectional communication architecture.
+Questa struttura crea un'architettura di comunicazione bidirezionale.
 
 ---
 
-## 7. Interface Architecture
+## 7. Architettura dell'Interfaccia
 
-The user interface is divided into seven main screens:
+L'interfaccia utente è suddivisa in **sette schermate principali**:
 
 ```text
 ┌─────────────────────────────┐
@@ -177,56 +177,56 @@ The user interface is divided into seven main screens:
 └─────────────────────────────┘
 ```
 
-Navigation is performed through touch interaction and horizontal swipe gestures.
+La navigazione avviene tramite interazione touch e gesture swipe orizzontali.
 
-Each screen has a defined functional responsibility.
+Ogni schermata possiede una specifica responsabilità funzionale.
 
 ---
 
-## 8. User Interface Layers
+## 8. Livelli dell'Interfaccia Utente
 
-The graphical interface follows a common layout:
+L'interfaccia grafica utilizza una struttura comune:
 
 ```text
 ┌──────────────────────────────────────┐
-│ Header / System Information          │
+│ Header / Informazioni di Sistema     │
 ├──────────────────────────────────────┤
 │                                      │
 │                                      │
-│          Screen Content              │
+│          Contenuto Schermata         │
 │                                      │
 │                                      │
 ├──────────────────────────────────────┤
-│ Communication / Radio Status         │
+│ Stato Comunicazione / Radio          │
 └──────────────────────────────────────┘
 ```
 
 ### Header
 
-Provides information such as:
+Fornisce informazioni come:
 
-* battery level;
-* current screen;
-* time;
-* communication indicators.
+* livello della batteria;
+* schermata corrente;
+* ora;
+* indicatori di comunicazione.
 
-### Main Content
+### Contenuto Principale
 
-Displays the information and controls associated with the selected screen.
+Visualizza le informazioni e i controlli associati alla schermata selezionata.
 
 ### Footer
 
-Provides the radio communication status.
+Visualizza lo stato della comunicazione radio.
 
 ---
 
-## 9. Navigation Architecture
+## 9. Architettura della Navigazione
 
-Two different interaction mechanisms are used.
+Vengono utilizzati due differenti meccanismi di interazione.
 
-### Swipe Navigation
+### Navigazione tramite Swipe
 
-Horizontal gestures are used to move between screens.
+Le gesture orizzontali vengono utilizzate per passare da una schermata all'altra.
 
 ```text
 STATO SISTEMA
@@ -250,35 +250,35 @@ AUDIO E SCHERMO
 RETE WI-FI
 ```
 
-The gesture parameters are designed for the physical limitations of the 320×240 touchscreen:
+I parametri della gesture sono stati definiti considerando le limitazioni fisiche del touchscreen 320×240:
 
 ```text
 SWIPE_THRESHOLD = 60 px
 SWIPE_MAX_MS    = 800 ms
 ```
 
-### Touch Controls
+### Controlli Touch
 
-Touch interaction is handled independently from swipe detection.
+L'interazione touch viene gestita separatamente dal rilevamento dello swipe.
 
-This prevents a navigation gesture from unintentionally activating a control.
+Questo impedisce che una gesture di navigazione possa attivare accidentalmente un controllo.
 
 ---
 
-## 10. Distributed Embedded System
+## 10. Sistema Embedded Distribuito
 
-The complete system can be considered a distributed embedded architecture:
+Il sistema completo può essere considerato un'architettura embedded distribuita:
 
 ```text
                   ┌──────────────────────┐
                   │  SMART IRRIGATION    │
                   │                      │
-                  │  Sensors             │
-                  │  Pumps               │
-                  │  Control Logic       │
+                  │  Sensori             │
+                  │  Pompe               │
+                  │  Logica di controllo │
                   │  SMART               │
-                  │  Weather             │
-                  │  Network Services    │
+                  │  Meteo               │
+                  │  Servizi di rete     │
                   └──────────┬───────────┘
                              │
                              │ ESP-NOW
@@ -287,58 +287,59 @@ The complete system can be considered a distributed embedded architecture:
                   │   REMOTE CONTROL     │
                   │                      │
                   │   ESP32              │
-                  │   Communication      │
-                  │   Touch Processing   │
-                  │   UI Logic           │
+                  │   Comunicazione      │
+                  │   Gestione Touch     │
+                  │   Logica UI          │
                   └──────────┬───────────┘
                              │
                              ▼
                   ┌──────────────────────┐
                   │    TFT + XPT2046     │
                   │                      │
-                  │    User Interface    │
+                  │    Interfaccia Utente│
                   └──────────────────────┘
 ```
 
-The separation of responsibilities allows the system to scale without placing the complete user interface and irrigation control logic on the same device.
+La separazione delle responsabilità permette al sistema di essere sviluppato in modo modulare, evitando di concentrare la gestione completa dell'interfaccia utente e della logica di irrigazione sullo stesso dispositivo.
 
 ---
 
-## 11. Design Principles
+## 11. Principi di Progettazione
 
-The architecture was developed around several principles:
+L'architettura è stata sviluppata secondo alcuni principi fondamentali.
 
-### Separation of Responsibilities
+### Separazione delle Responsabilità
 
-The irrigation controller manages the physical system while the Remote Control manages the local user interface.
+Il controller dell'irrigazione gestisce il sistema fisico, mentre il Remote Control gestisce l'interfaccia utente locale.
 
-### Wireless Communication
+### Comunicazione Wireless
 
-ESP-NOW provides a lightweight communication channel between the embedded nodes.
+ESP-NOW fornisce un canale di comunicazione leggero e diretto tra i nodi embedded.
 
-### Local Interface
+### Interfaccia Locale
 
-The Remote Control remains usable as a dedicated physical control panel without requiring a computer or smartphone.
+Il Remote Control può essere utilizzato come pannello di controllo fisico dedicato senza richiedere un computer o uno smartphone.
 
-### Visual Feedback
+### Feedback Visivo
 
-System state and communication status are continuously presented through the TFT interface.
+Lo stato del sistema e della comunicazione viene visualizzato attraverso l'interfaccia TFT.
 
-### Modular Architecture
+### Architettura Modulare
 
-The Remote Control is maintained as a separate project from the main irrigation firmware.
+Il Remote Control viene mantenuto come progetto separato rispetto al firmware principale del sistema di irrigazione.
 
 ---
 
-## 12. Repository Relationship
+## 12. Relazione tra i Repository
 
-The two projects are maintained independently:
+I due progetti vengono mantenuti separatamente:
 
 ```text
 ┌───────────────────────────────┐
 │ esp32-smart-irrigation        │
 │                               │
-│ Main irrigation controller    │
+│ Controller principale         │
+│ dell'impianto di irrigazione  │
 └───────────────┬───────────────┘
                 │
                 │ ESP-NOW
@@ -347,26 +348,35 @@ The two projects are maintained independently:
 ┌───────────────────────────────┐
 │ remote-control                │
 │                               │
-│ Wireless user interface       │
+│ Interfaccia utente wireless   │
 └───────────────────────────────┘
 ```
 
-This repository documents the Remote Control as an independent embedded project while preserving its relationship with the main Smart Irrigation system.
+Questo repository documenta il Remote Control come progetto embedded indipendente, mantenendo allo stesso tempo la relazione tecnica con il sistema principale Smart Irrigation.
 
 ---
 
-## 13. Technical Summary
+## 13. Riepilogo Tecnico
 
-| Layer                  | Technology                      |
+| Livello                | Tecnologia                      |
 | ---------------------- | ------------------------------- |
-| Microcontroller        | ESP32                           |
-| Main System            | ESP32-S3                        |
-| Wireless Communication | ESP-NOW                         |
+| Microcontrollore       | ESP32                           |
+| Sistema Principale     | ESP32-S3                        |
+| Comunicazione Wireless | ESP-NOW                         |
 | Display                | TFT 320×240                     |
 | Touch                  | XPT2046                         |
 | Firmware               | C++ / Arduino                   |
-| Interface              | Embedded GUI                    |
-| Navigation             | Touch + Swipe                   |
-| Architecture           | Distributed Embedded System     |
-| Project Type           | Embedded / IoT / Remote Control |
+| Interfaccia            | GUI Embedded                    |
+| Navigazione            | Touch + Swipe                   |
+| Architettura           | Sistema Embedded Distribuito    |
+| Tipologia di Progetto  | Embedded / IoT / Remote Control |
 
+---
+
+## 14. Nota sul Repository
+
+Il presente repository è stato realizzato come **portfolio tecnico**.
+
+Il firmware completo del dispositivo non viene pubblicato. La documentazione si concentra sull'architettura del sistema, sull'interfaccia utente, sulla comunicazione wireless e sulle soluzioni tecniche adottate durante lo sviluppo.
+
+L'obiettivo è mostrare l'approccio progettuale e le competenze tecniche applicate nella realizzazione di un'interfaccia embedded wireless integrata con un sistema IoT reale.
